@@ -1,0 +1,19 @@
+{
+  "name": "sandbox-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "OpenSandbox K8s AI Sandbox Management Platform",
+  "scripts": {
+    "dev": "pnpm run dev:backend & pnpm run dev:frontend",
+    "dev:backend": "pnpm --filter @sandbox-platform/backend dev",
+    "dev:frontend": "pnpm --filter @sandbox-platform/frontend dev",
+    "build": "pnpm -r build",
+    "build:backend": "pnpm --filter @sandbox-platform/backend build",
+    "build:frontend": "pnpm --filter @sandbox-platform/frontend build"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

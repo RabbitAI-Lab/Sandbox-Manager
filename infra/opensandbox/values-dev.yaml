@@ -1,0 +1,33 @@
+controller:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 32Mi
+
+server:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  service:
+    type: ClusterIP
+
+configToml: |
+  [server]
+  host = "0.0.0.0"
+  port = 80
+  api_key = "dev-api-key-change-in-prod"
+
+  [runtime]
+  type = "kubernetes"
+  execd_image = "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/execd:v1.0.17"
+
+  [kubernetes]
+  namespace = "opensandbox"
+  workload_provider = "batchsandbox"
+  informer_enabled = true
+
+  [ingress]
+  mode = "direct"

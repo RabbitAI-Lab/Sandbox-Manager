@@ -1,0 +1,6 @@
+apiVersion: v2
+name: sandbox-platform
+description: AI Sandbox Management Platform - backend + frontend
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

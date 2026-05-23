@@ -1,0 +1,16 @@
+apiVersion: sandbox.opensandbox.io/v1alpha1
+kind: Pool
+metadata:
+  name: dev-pool
+  namespace: opensandbox
+spec:
+  template:
+    spec:
+      containers:
+      - name: sandbox
+        image: ubuntu:22.04
+  capacitySpec:
+    bufferMax: 3
+    bufferMin: 1
+    poolMax: 5
+    poolMin: 0

@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sandbox-platform.fullname" . }}-backend
+  labels:
+    app: {{ include "sandbox-platform.fullname" . }}-backend
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "sandbox-platform.fullname" . }}-backend
+  template:
+    metadata:
+      labels:
+        app: {{ include "sandbox-platform.fullname" . }}-backend
+    spec:
+      containers:
+      - name: backend
+        image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+        imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+        ports:
+        - containerPort: 3000
+        envFrom:
+        - configMapRef:
+            name: {{ include "sandbox-platform.fullname" . }}-backend
+        - secretRef:
+            name: {{ include "sandbox-platform.fullname" . }}
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          {{- toYaml .Values.backend.resources | nindent 12 }}

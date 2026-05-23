@@ -1,0 +1,13 @@
+/* xterm.js overrides for light theme */
+.xterm {
+  padding: 4px 8px;
+}
+
+.xterm-viewport::-webkit-scrollbar {
+  width: 8px;
+}
+
+.xterm-viewport::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}

@@ -1,0 +1,25 @@
+replicaCount: 2
+
+backend:
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+frontend:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+ingress:
+  host: sandbox.rabbitai-lab.com
+  tls:
+    enabled: true
+    secretName: sandbox-platform-tls
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70

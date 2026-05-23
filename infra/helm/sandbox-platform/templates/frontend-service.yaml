@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "sandbox-platform.fullname" . }}-frontend
+  labels:
+    app: {{ include "sandbox-platform.fullname" . }}-frontend
+spec:
+  type: ClusterIP
+  ports:
+  - port: {{ .Values.frontend.service.port }}
+    targetPort: 80
+  selector:
+    app: {{ include "sandbox-platform.fullname" . }}-frontend

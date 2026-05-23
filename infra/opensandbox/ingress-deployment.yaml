@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opensandbox-ingress
+  namespace: opensandbox-system
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: opensandbox-ingress
+  template:
+    metadata:
+      labels:
+        app: opensandbox-ingress
+    spec:
+      containers:
+      - name: ingress
+        image: opensandbox/ingress:latest
+        args:
+          - "--provider-type=batchsandbox"
+          - "--mode=header"
+          - "--port=28888"
+          - "--log-level=info"
+        ports:
+        - containerPort: 28888
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensandbox-ingress
+  namespace: opensandbox-system
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 28888
+  selector:
+    app: opensandbox-ingress

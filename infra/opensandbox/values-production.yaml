@@ -1,0 +1,43 @@
+controller:
+  replicaCount: 2
+  snapshot:
+    registry: "your-registry.example.com/opensandbox-snapshots"
+    snapshotPushSecret: "registry-snapshot-push-secret"
+    resumePullSecret: "registry-pull-secret"
+
+server:
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+
+configToml: |
+  [server]
+  host = "0.0.0.0"
+  port = 80
+  api_key = ""
+
+  [runtime]
+  type = "kubernetes"
+  execd_image = "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/execd:v1.0.17"
+
+  [kubernetes]
+  namespace = "opensandbox"
+  workload_provider = "batchsandbox"
+  informer_enabled = true
+
+  [ingress]
+  mode = "gateway"
+
+  [ingress.gateway]
+  address = "*.rabbitai-lab.com"
+  route.mode = "wildcard"
+
+  [secure_runtime]
+  type = "gvisor"
+  k8s_runtime_class = "gvisor"
+
+  [egress]
+  image = "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/egress:v1.0.12"
+  mode = "dns+nft"

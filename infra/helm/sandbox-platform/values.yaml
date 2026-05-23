@@ -1,0 +1,43 @@
+replicaCount: 1
+
+backend:
+  image:
+    repository: sandbox-platform/backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 3000
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+frontend:
+  image:
+    repository: sandbox-platform/frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 80
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+ingress:
+  enabled: true
+  className: nginx
+  host: sandbox.localhost
+  tls:
+    enabled: false
+    secretName: ""
+
+secrets:
+  jwtSecret: "dev-jwt-secret-change-me"
+  opensandboxApiKey: "dev-api-key-change-in-prod"
+
+config:
+  opensandboxServerUrl: "http://opensandbox-server.opensandbox-system.svc.cluster.local:80"
+  port: "3000"
+  corsOrigin: "*"
+  logLevel: "info"

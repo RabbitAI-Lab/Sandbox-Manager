@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sandbox-wildcard-ingress
+  namespace: opensandbox-system
+  annotations:
+    nginx.ingress.kubernetes.io/websocket-services: "opensandbox-ingress"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - "*.rabbitai-lab.com"
+    secretName: rabbitai-lab-wildcard-tls
+  rules:
+  - host: "*.rabbitai-lab.com"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: opensandbox-ingress
+            port:
+              number: 80
