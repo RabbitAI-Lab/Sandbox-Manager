@@ -31,10 +31,17 @@ fi
 
 # Step 4: Verify gateway access
 echo "[4/4] Verifying gateway access..."
-if curl -s http://osb.sandbox.localhost/health 2>/dev/null | grep -q "healthy"; then
-  echo "  Server API: OK (http://osb.sandbox.localhost)"
-else
-  echo "  Warning: Server API not reachable at http://osb.sandbox.localhost"
+DOMAINS="${SANDBOX_DOMAINS:-sandbox.localhost}"
+SERVER_OK=false
+for domain in $DOMAINS; do
+  if curl -s "http://osb.${domain}/health" 2>/dev/null | grep -q "healthy"; then
+    echo "  Server API: OK (http://osb.${domain})"
+    SERVER_OK=true
+    break
+  fi
+done
+if [ "$SERVER_OK" = false ]; then
+  echo "  Warning: Server API not reachable for any configured domain"
   echo "  Ensure Ingress rules are applied: kubectl apply -f infra/opensandbox/"
 fi
 

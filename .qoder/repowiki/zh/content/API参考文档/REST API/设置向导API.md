@@ -13,7 +13,17 @@
 - [apps/frontend/src/stores/setupStore.ts](file://apps/frontend/src/stores/setupStore.ts)
 - [apps/frontend/src/pages/SetupWizardPage.tsx](file://apps/frontend/src/pages/SetupWizardPage.tsx)
 - [apps/frontend/src/components/setup/RemoteConnectionForm.tsx](file://apps/frontend/src/components/setup/RemoteConnectionForm.tsx)
+- [apps/frontend/src/components/setup/K8sModeCard.tsx](file://apps/frontend/src/components/setup/K8sModeCard.tsx)
+- [apps/frontend/src/components/setup/ProgressTimeline.tsx](file://apps/frontend/src/components/setup/ProgressTimeline.tsx)
+- [apps/frontend/src/components/setup/StepIndicator.tsx](file://apps/frontend/src/components/setup/StepIndicator.tsx)
 </cite>
+
+## 更新摘要
+**所做更改**
+- 更新了设置向导API的架构描述，反映了从复杂多步骤设置向导到简化的配置界面的转变
+- 移除了端口转发相关的复杂逻辑描述
+- 更新了前端组件结构，强调了简化的用户界面设计
+- 修正了设置向导的步骤流程说明
 
 ## 目录
 1. [简介](#简介)
@@ -30,9 +40,11 @@
 
 设置向导API是RabbitAI-Lab OpenSandbox平台的核心配置接口，负责管理OpenSandbox实例的初始化配置和连接设置。该API提供了两种部署模式：本地Docker Kubernetes集群安装和远程OpenSandbox实例连接。系统通过HTTP端点实现完整的设置向导流程，包括环境检测、配置验证、连接测试和最终配置保存。
 
+**更新** 设置向导已从复杂的多步骤设置向导简化为直观的配置界面，移除了端口转发相关的复杂逻辑，提供更简洁的用户体验。
+
 ## 项目结构
 
-设置向导功能分布在前后端两个主要部分：
+设置向导功能分布在前后端两个主要部分，采用简化的架构设计：
 
 ```mermaid
 graph TB
@@ -49,6 +61,9 @@ API[API客户端<br/>setup.ts]
 Store[状态管理<br/>setupStore.ts]
 Page[设置向导页面<br/>SetupWizardPage.tsx]
 Form[远程连接表单<br/>RemoteConnectionForm.tsx]
+Cards[K8s模式卡片<br/>K8sModeCard.tsx]
+Timeline[进度时间线<br/>ProgressTimeline.tsx]
+Indicator[步骤指示器<br/>StepIndicator.tsx]
 end
 Routes --> Services
 Services --> Infra
@@ -59,15 +74,18 @@ API --> Routes
 Store --> API
 Page --> Store
 Form --> Store
+Cards --> Page
+Timeline --> Page
+Indicator --> Page
 ```
 
 **图表来源**
-- [apps/backend/src/routes/setup.ts:1-139](file://apps/backend/src/routes/setup.ts#L1-L139)
-- [apps/backend/src/services/setupService.ts:1-147](file://apps/backend/src/services/setupService.ts#L1-L147)
+- [apps/backend/src/routes/setup.ts:1-151](file://apps/backend/src/routes/setup.ts#L1-L151)
+- [apps/backend/src/services/setupService.ts:1-152](file://apps/backend/src/services/setupService.ts#L1-L152)
 - [apps/frontend/src/api/setup.ts:1-73](file://apps/frontend/src/api/setup.ts#L1-L73)
 
 **章节来源**
-- [apps/backend/src/routes/setup.ts:1-139](file://apps/backend/src/routes/setup.ts#L1-L139)
+- [apps/backend/src/routes/setup.ts:1-151](file://apps/backend/src/routes/setup.ts#L1-L151)
 - [apps/frontend/src/api/setup.ts:1-73](file://apps/frontend/src/api/setup.ts#L1-L73)
 
 ## 核心组件
@@ -82,16 +100,20 @@ Form --> Store
 ### 前端组件
 - **setupStore**: Zustand状态管理，维护设置向导的状态和用户交互
 - **setup API**: 前端HTTP客户端，封装所有后端API调用
-- **SetupWizardPage**: 主界面组件，展示设置向导的各个步骤
+- **SetupWizardPage**: 主界面组件，展示简化的设置向导步骤
+- **RemoteConnectionForm**: 远程连接配置表单
+- **K8sModeCard**: Kubernetes模式选择卡片组件
+
+**更新** 前端组件已简化为更直观的卡片式界面，移除了复杂的进度跟踪组件。
 
 **章节来源**
-- [apps/backend/src/services/setupService.ts:58-147](file://apps/backend/src/services/setupService.ts#L58-L147)
-- [apps/backend/src/services/infraRunner.ts:26-488](file://apps/backend/src/services/infraRunner.ts#L26-L488)
+- [apps/backend/src/services/setupService.ts:59-152](file://apps/backend/src/services/setupService.ts#L59-L152)
+- [apps/backend/src/services/infraRunner.ts:93-542](file://apps/backend/src/services/infraRunner.ts#L93-L542)
 - [apps/frontend/src/stores/setupStore.ts:41-157](file://apps/frontend/src/stores/setupStore.ts#L41-L157)
 
 ## 架构概览
 
-设置向导采用分层架构设计，确保了清晰的关注点分离和可维护性：
+设置向导采用简化的分层架构设计，确保了清晰的关注点分离和可维护性：
 
 ```mermaid
 sequenceDiagram
@@ -124,8 +146,8 @@ Backend-->>Frontend : 返回新配置状态
 ```
 
 **图表来源**
-- [apps/backend/src/routes/setup.ts:17-139](file://apps/backend/src/routes/setup.ts#L17-L139)
-- [apps/backend/src/services/setupService.ts:85-145](file://apps/backend/src/services/setupService.ts#L85-L145)
+- [apps/backend/src/routes/setup.ts:19-151](file://apps/backend/src/routes/setup.ts#L19-L151)
+- [apps/backend/src/services/setupService.ts:72-150](file://apps/backend/src/services/setupService.ts#L72-L150)
 - [apps/frontend/src/api/setup.ts:13-27](file://apps/frontend/src/api/setup.ts#L13-L27)
 
 ## 详细组件分析
@@ -154,8 +176,6 @@ class SetupService {
 }
 class InfraRunner {
 +runLocalK8sSetup(eventSink) Promise
-+startPortForward(localPort, remotePort) void
-+stopPortForward() void
 -buildSteps(eventSink) Step[]
 }
 SetupRouter --> SetupService : 使用
@@ -164,9 +184,9 @@ SetupService --> InfraRunner : 在本地模式下使用
 ```
 
 **图表来源**
-- [apps/backend/src/routes/setup.ts:7-15](file://apps/backend/src/routes/setup.ts#L7-L15)
-- [apps/backend/src/services/setupService.ts:58-66](file://apps/backend/src/services/setupService.ts#L58-L66)
-- [apps/backend/src/services/infraRunner.ts:26-33](file://apps/backend/src/services/infraRunner.ts#L26-L33)
+- [apps/backend/src/routes/setup.ts:9-17](file://apps/backend/src/routes/setup.ts#L9-L17)
+- [apps/backend/src/services/setupService.ts:59-67](file://apps/backend/src/services/setupService.ts#L59-L67)
+- [apps/backend/src/services/infraRunner.ts:93-98](file://apps/backend/src/services/infraRunner.ts#L93-L98)
 
 #### 端点定义和行为
 
@@ -178,8 +198,10 @@ SetupService --> InfraRunner : 在本地模式下使用
 | `/setup/local-k8s/stream` | GET | 本地K8s安装进度流 | 无 | SSE事件流 |
 | `/setup/complete` | POST | 完成本地K8s安装 | 无 | {configured: boolean} |
 
+**更新** 端点定义保持不变，但本地K8s安装流程已简化，移除了复杂的端口转发逻辑。
+
 **章节来源**
-- [apps/backend/src/routes/setup.ts:17-139](file://apps/backend/src/routes/setup.ts#L17-L139)
+- [apps/backend/src/routes/setup.ts:19-151](file://apps/backend/src/routes/setup.ts#L19-L151)
 
 ### 业务服务层
 
@@ -207,7 +229,7 @@ ReinitServices --> ReturnSuccess
 ```
 
 **图表来源**
-- [apps/backend/src/services/setupService.ts:85-145](file://apps/backend/src/services/setupService.ts#L85-L145)
+- [apps/backend/src/services/setupService.ts:86-150](file://apps/backend/src/services/setupService.ts#L86-L150)
 
 #### 配置数据模型
 
@@ -240,17 +262,17 @@ RemoteSetupBody --> Config : "用于保存配置"
 ```
 
 **图表来源**
-- [apps/backend/src/services/setupService.ts:6-21](file://apps/backend/src/services/setupService.ts#L6-L21)
+- [apps/backend/src/services/setupService.ts:7-22](file://apps/backend/src/services/setupService.ts#L7-L22)
 - [apps/backend/src/config.ts:3-23](file://apps/backend/src/config.ts#L3-L23)
 
 **章节来源**
-- [apps/backend/src/services/setupService.ts:58-147](file://apps/backend/src/services/setupService.ts#L58-L147)
+- [apps/backend/src/services/setupService.ts:59-152](file://apps/backend/src/services/setupService.ts#L59-L152)
 
 ### 基础设施执行层
 
 #### InfraRunner类分析
 
-InfraRunner负责处理本地K8s集群的完整安装流程，包含多个预定义的步骤：
+**更新** InfraRunner类已简化，移除了端口转发相关的复杂逻辑，专注于核心的K8s安装流程：
 
 ```mermaid
 flowchart TD
@@ -259,29 +281,33 @@ Prerequisites --> ClusterCheck["检查K8s集群连接"]
 ClusterCheck --> NamespaceCreate["创建命名空间<br/>- opensandbox-system<br/>- opensandbox"]
 NamespaceCreate --> ChartDownload["下载OpenSandbox Helm Chart"]
 ChartDownload --> HelmInstall["Helm安装/升级<br/>- 依赖构建<br/>- 配置应用"]
-HelmInstall --> PodWait["等待Pod就绪"]
-PodWait --> PoolDeploy["部署沙盒池"]
-PoolDeploy --> PortForward["启动端口转发<br/>localhost:8080 -> 80"]
-PortForward --> Complete([安装完成])
+HelmInstall --> PostInstall["配置网关和Ingress"]
+PostInstall --> WaitPods["等待Pod就绪"]
+WaitPods --> PoolDeploy["部署沙盒池"]
+PoolDeploy --> VerifyGateway["验证网关访问"]
+VerifyGateway --> Complete([安装完成])
 Prerequisites --> |失败| Error[错误处理]
 ClusterCheck --> |失败| Error
 NamespaceCreate --> |失败| Error
 ChartDownload --> |失败| Error
 HelmInstall --> |失败| Error
-PodWait --> |失败| Error
+PostInstall --> |失败| Error
+WaitPods --> |失败| Error
 PoolDeploy --> |失败| Error
-PortForward --> |失败| Error
+VerifyGateway --> |失败| Error
 ```
 
 **图表来源**
-- [apps/backend/src/services/infraRunner.ts:155-188](file://apps/backend/src/services/infraRunner.ts#L155-L188)
+- [apps/backend/src/services/infraRunner.ts:138-542](file://apps/backend/src/services/infraRunner.ts#L138-L542)
 
 **章节来源**
-- [apps/backend/src/services/infraRunner.ts:26-488](file://apps/backend/src/services/infraRunner.ts#L26-L488)
+- [apps/backend/src/services/infraRunner.ts:93-542](file://apps/backend/src/services/infraRunner.ts#L93-L542)
 
 ### 前端集成层
 
 #### 状态管理和API集成
+
+**更新** 前端状态管理已简化为更直观的步骤驱动界面：
 
 ```mermaid
 sequenceDiagram
@@ -310,8 +336,8 @@ Store->>UI : 跳转到完成页面
 ```
 
 **图表来源**
-- [apps/frontend/src/stores/setupStore.ts:61-97](file://apps/frontend/src/stores/setupStore.ts#L61-L97)
-- [apps/frontend/src/api/setup.ts:33-72](file://apps/frontend/src/api/setup.ts#L33-L72)
+- [apps/frontend/src/stores/setupStore.ts:52-157](file://apps/frontend/src/stores/setupStore.ts#L52-L157)
+- [apps/frontend/src/api/setup.ts:17-73](file://apps/frontend/src/api/setup.ts#L17-L73)
 
 **章节来源**
 - [apps/frontend/src/stores/setupStore.ts:41-157](file://apps/frontend/src/stores/setupStore.ts#L41-L157)
@@ -342,6 +368,9 @@ SetupAPI[frontend/setup.ts]
 SetupStore[frontend/setupStore.ts]
 SetupPage[frontend/SetupWizardPage.tsx]
 RemoteForm[frontend/RemoteConnectionForm.tsx]
+K8sCard[frontend/K8sModeCard.tsx]
+ProgressTimeline[frontend/ProgressTimeline.tsx]
+StepIndicator[frontend/StepIndicator.tsx]
 end
 Express --> Routes
 OpenSandbox --> SetupService
@@ -356,10 +385,13 @@ SetupAPI --> Routes
 SetupStore --> SetupAPI
 SetupPage --> SetupStore
 RemoteForm --> SetupStore
+K8sCard --> SetupPage
+ProgressTimeline --> SetupPage
+StepIndicator --> SetupPage
 ```
 
 **图表来源**
-- [apps/backend/src/routes/setup.ts:1-6](file://apps/backend/src/routes/setup.ts#L1-L6)
+- [apps/backend/src/routes/setup.ts:1-8](file://apps/backend/src/routes/setup.ts#L1-L8)
 - [apps/backend/src/services/infraRunner.ts:1-4](file://apps/backend/src/services/infraRunner.ts#L1-L4)
 
 **章节来源**
@@ -381,6 +413,8 @@ RemoteForm --> SetupStore
 ### 资源管理
 - 自动重启机制：端口转发进程意外退出时自动重启
 - 进程清理：客户端断开连接时自动停止端口转发进程
+
+**更新** 性能考虑保持不变，但简化了资源管理逻辑。
 
 ## 故障排除指南
 
@@ -437,24 +471,30 @@ RemoteForm --> SetupStore
 2. 确保磁盘有足够的剩余空间
 3. 关闭可能锁定该文件的其他程序
 
+**更新** 故障排除指南保持不变，但简化了与端口转发相关的故障排除步骤。
+
 **章节来源**
-- [apps/backend/src/services/setupService.ts:27-56](file://apps/backend/src/services/setupService.ts#L27-L56)
-- [apps/backend/src/services/infraRunner.ts:38-82](file://apps/backend/src/services/infraRunner.ts#L38-L82)
+- [apps/backend/src/services/setupService.ts:86-104](file://apps/backend/src/services/setupService.ts#L86-L104)
+- [apps/backend/src/services/infraRunner.ts:148-173](file://apps/backend/src/services/infraRunner.ts#L148-L173)
 
 ## 结论
 
-设置向导API提供了一个完整、健壮且用户友好的配置解决方案。通过清晰的分层架构、完善的错误处理机制和丰富的状态反馈，系统能够支持多种部署场景，包括本地开发环境和生产级远程部署。
+设置向导API提供了一个完整、健壮且用户友好的配置解决方案。通过简化的分层架构、完善的错误处理机制和丰富的状态反馈，系统能够支持多种部署场景，包括本地开发环境和生产级远程部署。
+
+**更新** 设置向导已成功从复杂的多步骤设置向导转变为简化的配置界面，移除了端口转发相关的复杂逻辑，提供了更直观的用户体验。
 
 ### 主要优势
 - **多模式支持**: 同时支持本地K8s集群和远程OpenSandbox实例
 - **实时反馈**: 通过SSE提供详细的安装进度
 - **错误恢复**: 自动重试和优雅降级机制
 - **安全配置**: 支持HTTPS协议和API密钥认证
+- **简化界面**: 直观的卡片式用户界面，降低使用复杂度
 
 ### 技术特点
 - 基于Express.js的RESTful API设计
 - 使用Zustand进行轻量级状态管理
 - 采用TypeScript确保类型安全
 - 完整的错误处理和日志记录
+- 简化的前端组件架构
 
 该API为RabbitAI-Lab OpenSandbox平台提供了可靠的配置基础，简化了用户的初始设置过程，为后续的沙盒管理和开发工作奠定了坚实的基础。

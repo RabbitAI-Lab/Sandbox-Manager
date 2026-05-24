@@ -14,25 +14,29 @@ spec:
   {{- if .Values.ingress.tls.enabled }}
   tls:
   - hosts:
-    - {{ .Values.ingress.host }}
+    {{- range .Values.ingress.hosts }}
+    - {{ . }}
+    {{- end }}
     secretName: {{ .Values.ingress.tls.secretName }}
   {{- end }}
   rules:
-  - host: {{ .Values.ingress.host }}
+  {{- range .Values.ingress.hosts }}
+  - host: {{ . }}
     http:
       paths:
       - path: /api
         pathType: Prefix
         backend:
           service:
-            name: {{ include "sandbox-platform.fullname" . }}-backend
+            name: {{ include "sandbox-platform.fullname" $ }}-backend
             port:
-              number: {{ .Values.backend.service.port }}
+              number: {{ $.Values.backend.service.port }}
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: {{ include "sandbox-platform.fullname" . }}-frontend
+            name: {{ include "sandbox-platform.fullname" $ }}-frontend
             port:
-              number: {{ .Values.frontend.service.port }}
+              number: {{ $.Values.frontend.service.port }}
+  {{- end }}
 {{- end }}

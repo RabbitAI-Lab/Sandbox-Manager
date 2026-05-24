@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { SandboxManager, ConnectionConfig } from "@alibaba-group/opensandbox";
 import type { Logger } from "../logger.js";
+import { DomainService } from "./domainService.js";
 
 export interface SetupStatus {
   configured: boolean;
@@ -128,15 +129,19 @@ export class SetupService {
   async saveLocalConfig(): Promise<void> {
     this.logger.info("Saving local K8s config");
 
+    const domainService = new DomainService(this.logger);
+    const domains = domainService.listDomains();
+    const serverUrl = domains.length > 0 ? `osb.${domains[0].replace(/^\*\./, "")}` : "osb.sandbox.localhost";
+
     writeEnvFile(this.envPath, {
-      OPENSANDBOX_SERVER_URL: "osb.sandbox.localhost",
+      OPENSANDBOX_SERVER_URL: serverUrl,
       OPENSANDBOX_API_KEY: "dev-api-key-change-in-prod",
       OPENSANDBOX_PROTOCOL: "http",
       OPENSANDBOX_USE_SERVER_PROXY: "false",
     });
 
     // Update process.env
-    process.env.OPENSANDBOX_SERVER_URL = "osb.sandbox.localhost";
+    process.env.OPENSANDBOX_SERVER_URL = serverUrl;
     process.env.OPENSANDBOX_API_KEY = "dev-api-key-change-in-prod";
     process.env.OPENSANDBOX_PROTOCOL = "http";
     process.env.OPENSANDBOX_USE_SERVER_PROXY = "false";

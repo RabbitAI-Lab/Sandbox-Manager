@@ -1,5 +1,6 @@
 import type { Logger } from "../logger.js";
 import { runCommand } from "../utils/runCommand.js";
+import { DomainService } from "./domainService.js";
 
 export interface SetupProgressEvent {
   step: string;
@@ -16,6 +17,75 @@ interface Step {
   label: string;
   weight: number;
   run: () => Promise<void>;
+}
+
+function generateIngressResources(domains: string[]): string[] {
+  const results: string[] = [];
+
+  for (const rawDomain of domains) {
+    // Strip *. prefix if present — we add it ourselves where needed
+    const domain = rawDomain.replace(/^\*\./, "");
+    const safeName = domain.replace(/\./g, "-");
+
+    // Sandbox wildcard Ingress
+    results.push(JSON.stringify({
+      apiVersion: "networking.k8s.io/v1",
+      kind: "Ingress",
+      metadata: {
+        name: `sandbox-wildcard-ingress-${safeName}`,
+        namespace: "opensandbox-system",
+        annotations: {
+          "nginx.ingress.kubernetes.io/websocket-services": "opensandbox-ingress-gateway",
+          "nginx.ingress.kubernetes.io/proxy-read-timeout": "3600",
+          "nginx.ingress.kubernetes.io/proxy-send-timeout": "3600",
+          "nginx.ingress.kubernetes.io/ssl-redirect": "false",
+        },
+      },
+      spec: {
+        ingressClassName: "nginx",
+        tls: [{ hosts: [`*.${domain}`], secretName: "sandbox-wildcard-tls" }],
+        rules: [{
+          host: `*.${domain}`,
+          http: {
+            paths: [{
+              path: "/",
+              pathType: "Prefix",
+              backend: { service: { name: "opensandbox-ingress-gateway", port: { number: 80 } } },
+            }],
+          },
+        }],
+      },
+    }));
+
+    // Server API Ingress
+    results.push(JSON.stringify({
+      apiVersion: "networking.k8s.io/v1",
+      kind: "Ingress",
+      metadata: {
+        name: `sandbox-server-ingress-${safeName}`,
+        namespace: "opensandbox-system",
+        annotations: {
+          "nginx.ingress.kubernetes.io/ssl-redirect": "false",
+        },
+      },
+      spec: {
+        ingressClassName: "nginx",
+        tls: [{ hosts: [`osb.${domain}`], secretName: "sandbox-wildcard-tls" }],
+        rules: [{
+          host: `osb.${domain}`,
+          http: {
+            paths: [{
+              path: "/",
+              pathType: "Prefix",
+              backend: { service: { name: "opensandbox-server", port: { number: 80 } } },
+            }],
+          },
+        }],
+      },
+    }));
+  }
+
+  return results;
 }
 
 /**
@@ -241,13 +311,19 @@ export class InfraRunner {
           emitOutput("helm-install", "Installing OpenSandbox...", "Running helm install...", 33);
 
           // Write a temporary values file with gateway wildcard config
+          const domainService = new DomainService(this.logger);
+          const domains = domainService.listDomains();
+          // Domain may already have *. prefix (e.g. "*.sandbox.localhost"), use as-is
+          const primaryDomain = domains.length > 0 ? domains[0] : "sandbox.localhost";
+          const gatewayHost = primaryDomain.startsWith("*.") ? primaryDomain : `*.${primaryDomain}`;
+
           const { writeFileSync, unlinkSync } = await import("node:fs");
           const tmpValues = "/tmp/opensandbox-setup-values.yaml";
           writeFileSync(tmpValues, `opensandbox-server:
   server:
     gateway:
       enabled: true
-      host: "*.sandbox.localhost"
+      host: "${gatewayHost}"
       gatewayRouteMode: "wildcard"
   configToml: |
     [server]
@@ -332,15 +408,15 @@ opensandbox-controller:
             30_000,
           );
 
-          // Apply sandbox ingress rules
+          // Apply sandbox ingress rules — dynamically generated from DomainService
           emitOutput("post-install", "Applying ingress rules...", "Creating K8s Ingress rules...", 60);
-          const { existsSync } = await import("node:fs");
-          const projectRoot = new URL("../../../..", import.meta.url).pathname.replace(/\/$/, "");
-          const ingressFiles = ["sandbox-ingress.yaml", "server-ingress.yaml"];
-          for (const f of ingressFiles) {
-            const p = `${projectRoot}/infra/opensandbox/${f}`;
-            if (existsSync(p)) {
-              await runCommand("kubectl", ["apply", "-f", p], this.logger, 15_000);
+          const domainSvc = new DomainService(this.logger);
+          const domainList = domainSvc.listDomains();
+          if (domainList.length > 0) {
+            const ingressResources = generateIngressResources(domainList);
+            for (const json of ingressResources) {
+              const escaped = json.replace(/'/g, "'\\''");
+              await runCommand("sh", ["-c", `echo '${escaped}' | kubectl apply -f -`], this.logger, 15_000);
             }
           }
 
@@ -432,17 +508,25 @@ spec:
             await runCommand("sh", ["-c", "pkill -f 'port-forward.*opensandbox' || true"], this.logger, 5_000);
           } catch { /* ignore */ }
 
-          emitOutput("verify-gateway", "Verifying gateway access...", "Checking http://osb.sandbox.localhost/health...", 90);
-          const healthResult = await runCommand(
-            "curl",
-            ["-s", "http://osb.sandbox.localhost/health"],
-            this.logger,
-            10_000,
-          );
-          if (healthResult.code !== 0 || !healthResult.stdout.includes("healthy")) {
+          // Health check against configured domains
+          const vDomainSvc = new DomainService(this.logger);
+          const vDomains = vDomainSvc.listDomains();
+          const healthUrls = vDomains.length > 0
+            ? vDomains.map((d: string) => `http://osb.${d.replace(/^\*\./, "")}/health`)
+            : ["http://osb.sandbox.localhost/health"];
+
+          let healthy = false;
+          for (const url of healthUrls) {
+            emitOutput("verify-gateway", "Verifying gateway access...", `Checking ${url}...`, 90);
+            const healthResult = await runCommand("curl", ["-s", url], this.logger, 10_000);
+            if (healthResult.code === 0 && healthResult.stdout.includes("healthy")) {
+              healthy = true;
+              emitOutput("verify-gateway", "Verifying gateway access...", `Server health check passed (${url})`, 95);
+              break;
+            }
+          }
+          if (!healthy) {
             emitOutput("verify-gateway", "Verifying gateway access...", "Warning: Server health check failed (may need Ingress rules applied)", 92);
-          } else {
-            emitOutput("verify-gateway", "Verifying gateway access...", "Server health check passed", 95);
           }
 
           emitOutput("verify-gateway", "Verifying gateway access...", "Gateway ready", 100);

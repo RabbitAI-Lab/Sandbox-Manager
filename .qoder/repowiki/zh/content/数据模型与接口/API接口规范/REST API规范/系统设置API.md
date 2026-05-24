@@ -11,11 +11,21 @@
 - [apps/frontend/src/api/types.ts](file://apps/frontend/src/api/types.ts)
 - [apps/frontend/src/stores/setupStore.ts](file://apps/frontend/src/stores/setupStore.ts)
 - [apps/frontend/src/pages/SetupWizardPage.tsx](file://apps/frontend/src/pages/SetupWizardPage.tsx)
+- [apps/frontend/src/components/setup/K8sModeCard.tsx](file://apps/frontend/src/components/setup/K8sModeCard.tsx)
+- [apps/frontend/src/components/setup/ProgressTimeline.tsx](file://apps/frontend/src/components/setup/ProgressTimeline.tsx)
+- [apps/frontend/src/components/setup/RemoteConnectionForm.tsx](file://apps/frontend/src/components/setup/RemoteConnectionForm.tsx)
 - [apps/backend/src/types/index.ts](file://apps/backend/src/types/index.ts)
 - [infra/helm/sandbox-platform/values.yaml](file://infra/helm/sandbox-platform/values.yaml)
 - [infra/opensandbox/values-dev.yaml](file://infra/opensandbox/values-dev.yaml)
 - [README.md](file://README.md)
 </cite>
+
+## 更新摘要
+**变更内容**
+- 移除了本地Kubernetes端口转发系统的相关文档
+- 更新了基础设施初始化流程的描述
+- 简化了本地安装过程的说明
+- 更新了配置管理和部署模式的相关内容
 
 ## 目录
 1. [简介](#简介)
@@ -56,6 +66,7 @@ subgraph "前端集成"
 FrontAPI[前端API<br/>apps/frontend/src/api/setup.ts]
 Stores[状态管理<br/>apps/frontend/src/stores/setupStore.ts]
 Pages[设置向导<br/>apps/frontend/src/pages/SetupWizardPage.tsx]
+Components[UI组件<br/>apps/frontend/src/components/setup/*]
 end
 Routes --> Services
 Services --> Config
@@ -64,16 +75,17 @@ Server --> Routes
 FrontAPI --> Routes
 Stores --> FrontAPI
 Pages --> Stores
+Components --> Stores
 ```
 
 **图表来源**
-- [apps/backend/src/routes/setup.ts:1-139](file://apps/backend/src/routes/setup.ts#L1-L139)
-- [apps/backend/src/services/setupService.ts:1-147](file://apps/backend/src/services/setupService.ts#L1-L147)
+- [apps/backend/src/routes/setup.ts:1-151](file://apps/backend/src/routes/setup.ts#L1-L151)
+- [apps/backend/src/services/setupService.ts:1-152](file://apps/backend/src/services/setupService.ts#L1-L152)
 - [apps/frontend/src/api/setup.ts:1-73](file://apps/frontend/src/api/setup.ts#L1-L73)
 
 **章节来源**
-- [apps/backend/src/routes/setup.ts:1-139](file://apps/backend/src/routes/setup.ts#L1-L139)
-- [apps/backend/src/services/setupService.ts:1-147](file://apps/backend/src/services/setupService.ts#L1-L147)
+- [apps/backend/src/routes/setup.ts:1-151](file://apps/backend/src/routes/setup.ts#L1-L151)
+- [apps/backend/src/services/setupService.ts:1-152](file://apps/backend/src/services/setupService.ts#L1-L152)
 - [apps/frontend/src/api/setup.ts:1-73](file://apps/frontend/src/api/setup.ts#L1-L73)
 
 ## 核心组件
@@ -96,8 +108,8 @@ Pages --> Stores
 - **设置向导**: 用户界面组件
 
 **章节来源**
-- [apps/backend/src/routes/setup.ts:17-139](file://apps/backend/src/routes/setup.ts#L17-L139)
-- [apps/backend/src/services/setupService.ts:58-147](file://apps/backend/src/services/setupService.ts#L58-L147)
+- [apps/backend/src/routes/setup.ts:17-151](file://apps/backend/src/routes/setup.ts#L17-L151)
+- [apps/backend/src/services/setupService.ts:58-152](file://apps/backend/src/services/setupService.ts#L58-L152)
 - [apps/frontend/src/stores/setupStore.ts:41-157](file://apps/frontend/src/stores/setupStore.ts#L41-L157)
 
 ## 架构概览
@@ -135,8 +147,8 @@ Backend-->>Frontend : 配置完成
 ```
 
 **图表来源**
-- [apps/backend/src/routes/setup.ts:18-67](file://apps/backend/src/routes/setup.ts#L18-L67)
-- [apps/backend/src/services/setupService.ts:85-123](file://apps/backend/src/services/setupService.ts#L85-L123)
+- [apps/backend/src/routes/setup.ts:18-73](file://apps/backend/src/routes/setup.ts#L18-L73)
+- [apps/backend/src/services/setupService.ts:85-124](file://apps/backend/src/services/setupService.ts#L85-L124)
 - [apps/backend/src/server.ts:96-118](file://apps/backend/src/server.ts#L96-L118)
 
 ## 详细组件分析
@@ -262,8 +274,8 @@ Success --> End
 ```
 
 **图表来源**
-- [apps/backend/src/routes/setup.ts:45-67](file://apps/backend/src/routes/setup.ts#L45-L67)
-- [apps/backend/src/services/setupService.ts:108-123](file://apps/backend/src/services/setupService.ts#L108-L123)
+- [apps/backend/src/routes/setup.ts:45-73](file://apps/backend/src/routes/setup.ts#L45-L73)
+- [apps/backend/src/services/setupService.ts:108-124](file://apps/backend/src/services/setupService.ts#L108-L124)
 
 #### .env文件写入机制
 
@@ -276,13 +288,13 @@ SetupService实现了智能的.env文件写入机制：
 
 **章节来源**
 - [apps/backend/src/services/setupService.ts:27-56](file://apps/backend/src/services/setupService.ts#L27-L56)
-- [apps/backend/src/services/setupService.ts:108-123](file://apps/backend/src/services/setupService.ts#L108-L123)
+- [apps/backend/src/services/setupService.ts:108-124](file://apps/backend/src/services/setupService.ts#L108-L124)
 
 ### 本地Kubernetes安装
 
-本地Kubernetes安装功能提供了完整的OpenSandbox本地部署解决方案。
+**更新** 本地Kubernetes安装功能经过重大简化，移除了复杂的端口转发系统，采用了更直接的Ingress和域名解析方式。
 
-#### 安装步骤流程
+#### 简化的安装步骤流程
 
 ```mermaid
 flowchart TD
@@ -293,14 +305,15 @@ CreateNS --> CloneChart["克隆Helm Chart"]
 CloneChart --> HelmInstall["Helm安装/升级"]
 HelmInstall --> WaitPods["等待Pod就绪"]
 WaitPods --> DeployPool["部署沙箱池"]
-DeployPool --> StartPortForward["启动端口转发"]
-StartPortForward --> Complete["安装完成"]
+DeployPool --> ConfigureIngress["配置Ingress规则"]
+ConfigureIngress --> VerifyAccess["验证网关访问"]
+VerifyAccess --> Complete["安装完成"]
 Prerequisites --> |前置条件缺失| Error["返回错误"]
 ClusterCheck --> |集群不可达| Error
 CreateNS --> |命名空间创建失败| Error
 HelmInstall --> |Helm安装失败| Error
 WaitPods --> |Pod未就绪| Warning["警告但继续"]
-Warning --> Complete
+Warning --> VerifyAccess
 Error --> End([结束])
 Complete --> End
 ```
@@ -308,34 +321,42 @@ Complete --> End
 **图表来源**
 - [apps/backend/src/services/infraRunner.ts:155-188](file://apps/backend/src/services/infraRunner.ts#L155-L188)
 
-#### 端口转发机制
+#### Ingress配置机制
 
-本地安装过程中使用了复杂的端口转发机制：
+本地安装过程中使用了动态生成的Ingress规则：
 
 ```mermaid
 sequenceDiagram
 participant Client as 客户端
 participant InfraRunner as 基础设施运行器
+participant DomainService as 域名服务
 participant Kubectl as kubectl
-participant Server as OpenSandbox服务器
-participant Gateway as 网关服务
-Client->>InfraRunner : 启动端口转发
-InfraRunner->>Kubectl : kubectl port-forward svc/opensandbox-server 8080 : 80
-Kubectl-->>InfraRunner : 确认端口转发启动
-InfraRunner->>InfraRunner : 启动自动重启机制
-InfraRunner->>Kubectl : 尝试启动网关端口转发
-Kubectl-->>InfraRunner : 网关端口转发结果
-InfraRunner->>Server : 本地访问localhost : 8080
-InfraRunner->>Gateway : 本地访问localhost : 8081
-InfraRunner->>InfraRunner : 监控进程状态
-InfraRunner->>InfraRunner : 异常时自动重启
+participant Ingress as Ingress规则
+Client->>InfraRunner : 配置Ingress规则
+InfraRunner->>DomainService : 获取域名列表
+DomainService-->>InfraRunner : 返回域名数组
+InfraRunner->>InfraRunner : 生成Ingress JSON
+InfraRunner->>Kubectl : 应用Ingress规则
+Kubectl-->>InfraRunner : Ingress规则已应用
+InfraRunner->>Ingress : Wildcard Ingress用于沙箱
+InfraRunner->>Ingress : Server Ingress用于API
+InfraRunner->>InfraRunner : 验证Ingress配置
 ```
 
 **图表来源**
-- [apps/backend/src/services/infraRunner.ts:88-143](file://apps/backend/src/services/infraRunner.ts#L88-L143)
+- [apps/backend/src/services/infraRunner.ts:22-87](file://apps/backend/src/services/infraRunner.ts#L22-L87)
+
+#### 端口转发系统的移除
+
+**重要更新** 本地Kubernetes端口转发系统已被完全移除，取而代之的是：
+
+1. **直接Ingress访问**: 通过Nginx Ingress直接访问OpenSandbox服务
+2. **域名解析**: 使用自定义域名和DNS配置
+3. **简化配置**: 不再需要手动端口转发命令
+4. **自动化验证**: 自动检查Ingress规则是否正确应用
 
 **章节来源**
-- [apps/backend/src/services/infraRunner.ts:190-487](file://apps/backend/src/services/infraRunner.ts#L190-L487)
+- [apps/backend/src/services/infraRunner.ts:190-542](file://apps/backend/src/services/infraRunner.ts#L190-L542)
 
 ### 服务重新初始化
 
@@ -464,6 +485,20 @@ SetupRouter --> Express
 3. 验证Kubernetes集群状态
 4. 检查网络连接和代理设置
 
+#### Ingress配置问题
+**症状**: 本地安装完成后无法访问OpenSandbox服务
+**可能原因**:
+- Ingress规则未正确应用
+- DNS解析问题
+- 域名配置错误
+- Nginx Ingress控制器未正确安装
+
+**解决步骤**:
+1. 检查Ingress规则状态: `kubectl get ingress -n opensandbox-system`
+2. 验证DNS配置和解析
+3. 确认Nginx Ingress控制器运行正常
+4. 检查Ingress控制器日志
+
 #### 服务重新初始化失败
 **症状**: 设置变更后服务无法正常工作
 **可能原因**:
@@ -482,6 +517,7 @@ SetupRouter --> Express
 2. **检查网络连接**: 使用`curl`或`wget`测试OpenSandbox服务器连通性
 3. **验证配置文件**: 检查`.env`文件中的配置项是否正确
 4. **查看系统资源**: 监控CPU、内存和磁盘使用情况
+5. **检查Ingress状态**: 使用`kubectl describe ingress`查看Ingress详细状态
 
 **章节来源**
 - [apps/backend/src/services/setupService.ts:98-102](file://apps/backend/src/services/setupService.ts#L98-L102)
@@ -494,9 +530,10 @@ SetupRouter --> Express
 ### 主要优势
 
 1. **多部署模式支持**: 同时支持本地Kubernetes和远程OpenSandbox实例
-2. **完整的设置向导**: 提供直观的用户界面和流畅的操作体验
-3. **健壮的错误处理**: 全面的错误检测和用户友好的错误提示
-4. **灵活的配置管理**: 支持动态配置变更和热重载
+2. **简化的本地安装**: 移除了复杂的端口转发系统，采用更直接的Ingress方式
+3. **完整的设置向导**: 提供直观的用户界面和流畅的操作体验
+4. **健壮的错误处理**: 全面的错误检测和用户友好的错误提示
+5. **灵活的配置管理**: 支持动态配置变更和热重载
 
 ### 最佳实践建议
 
@@ -504,5 +541,6 @@ SetupRouter --> Express
 2. **备份策略**: 在生产环境中进行重大配置变更前做好备份
 3. **监控告警**: 建立完善的监控和告警机制
 4. **文档维护**: 及时更新部署文档和配置说明
+5. **Ingress检查**: 定期检查Ingress规则和域名解析状态
 
 该API的设计充分体现了现代Web应用的最佳实践，为用户提供了可靠、易用且功能丰富的配置管理体验。

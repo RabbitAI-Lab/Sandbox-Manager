@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { SetupService } from "../services/setupService.js";
 import { ProfileService } from "../services/profileService.js";
+import { DomainService } from "../services/domainService.js";
 import { InfraRunner } from "../services/infraRunner.js";
 import { loadConfig } from "../config.js";
 import { reinitializeServices } from "../server.js";
@@ -128,10 +129,13 @@ setupRouter.post("/complete", async (req, res) => {
   try {
     await setupService.saveLocalConfig();
     // Sync the config into servers.json so it appears in the settings modal
+    const domainService = new DomainService(logger);
+    const domains = domainService.listDomains();
+    const serverUrl = domains.length > 0 ? `osb.${domains[0].replace(/^\*\./, "")}` : "osb.sandbox.localhost";
     const profileService = new ProfileService(logger);
     profileService.ensureProfile({
       name: "Local Kubernetes",
-      serverUrl: "osb.sandbox.localhost",
+      serverUrl,
       apiKey: "dev-api-key-change-in-prod",
       protocol: "http",
     });

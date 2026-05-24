@@ -13,10 +13,11 @@ frontend:
       memory: 128Mi
 
 ingress:
-  host: sandbox.rabbitai-lab.com
+  hosts:
+    - sandbox.rabbitai-lab.com
   tls:
-    enabled: true
-    secretName: sandbox-platform-tls
+    enabled: false
+    secretName: ""
 
 autoscaling:
   enabled: true

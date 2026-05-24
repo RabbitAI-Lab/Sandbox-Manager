@@ -10,6 +10,8 @@
 - [apps/backend/src/routes/health.ts](file://apps/backend/src/routes/health.ts)
 - [apps/backend/src/routes/images.ts](file://apps/backend/src/routes/images.ts)
 - [apps/backend/src/routes/profiles.ts](file://apps/backend/src/routes/profiles.ts)
+- [apps/backend/src/routes/domains.ts](file://apps/backend/src/routes/domains.ts)
+- [apps/backend/src/routes/envCheck.ts](file://apps/backend/src/routes/envCheck.ts)
 - [apps/backend/src/middleware/error.ts](file://apps/backend/src/middleware/error.ts)
 - [apps/backend/src/server.ts](file://apps/backend/src/server.ts)
 - [apps/backend/src/types/index.ts](file://apps/backend/src/types/index.ts)
@@ -17,6 +19,8 @@
 - [apps/backend/src/services/sandboxService.ts](file://apps/backend/src/services/sandboxService.ts)
 - [apps/backend/src/services/imageService.ts](file://apps/backend/src/services/imageService.ts)
 - [apps/backend/src/services/setupService.ts](file://apps/backend/src/services/setupService.ts)
+- [apps/backend/src/services/domainService.ts](file://apps/backend/src/services/domainService.ts)
+- [apps/backend/src/services/envCheckService.ts](file://apps/backend/src/services/envCheckService.ts)
 </cite>
 
 ## 目录
@@ -33,7 +37,7 @@
 
 ## 简介
 本文件面向Sandbox Manager后端的API路由系统，系统性阐述REST API设计原则与实现细节，覆盖以下主题：
-- 路由分层与职责划分：沙盒管理、文件操作、命令执行、镜像管理、设置向导、健康检查、配置文件管理等
+- 路由分层与职责划分：沙盒管理、文件操作、命令执行、镜像管理、设置向导、健康检查、配置文件管理、环境检查、域名管理等
 - 中间件体系：错误处理、请求ID注入、CORS、日志记录、请求体解析
 - API版本控制策略与错误响应格式、HTTP状态码规范
 - 典型调用流程与示例，含请求参数、响应格式、错误处理
@@ -56,6 +60,8 @@ RImg["routes/images.ts<br/>镜像管理"]
 RSetup["routes/setup.ts<br/>设置向导"]
 RHealth["routes/health.ts<br/>健康检查"]
 RProfiles["routes/profiles.ts<br/>配置文件管理"]
+RDomains["routes/domains.ts<br/>域名管理"]
+REnvCheck["routes/envCheck.ts<br/>环境检查"]
 end
 subgraph "中间件"
 ME["middleware/error.ts<br/>全局错误处理"]
@@ -64,6 +70,8 @@ subgraph "服务层"
 SSvc["services/sandboxService.ts"]
 ISvc["services/imageService.ts"]
 SetupSvc["services/setupService.ts"]
+DomainSvc["services/domainService.ts"]
+EnvCheckSvc["services/envCheckService.ts"]
 end
 S --> RIndex
 RIndex --> RSbx
@@ -71,30 +79,38 @@ RIndex --> RImg
 RIndex --> RSetup
 RIndex --> RHealth
 RIndex --> RProfiles
+RIndex --> RDomains
+RIndex --> REnvCheck
 RSbx --> RFiles
 RSbx --> RCmd
 S --> ME
 RSbx --> SSvc
 RImg --> ISvc
 RSetup --> SetupSvc
+RDomains --> DomainSvc
+REnvCheck --> EnvCheckSvc
 ```
 
-图表来源
+**图表来源**
 - [apps/backend/src/server.ts:36-90](file://apps/backend/src/server.ts#L36-L90)
 - [apps/backend/src/routes/index.ts:9-18](file://apps/backend/src/routes/index.ts#L9-L18)
 - [apps/backend/src/routes/sandboxes.ts:1-175](file://apps/backend/src/routes/sandboxes.ts#L1-L175)
 - [apps/backend/src/routes/files.ts:1-327](file://apps/backend/src/routes/files.ts#L1-L327)
 - [apps/backend/src/routes/commands.ts:1-95](file://apps/backend/src/routes/commands.ts#L1-L95)
 - [apps/backend/src/routes/images.ts:1-78](file://apps/backend/src/routes/images.ts#L1-L78)
-- [apps/backend/src/routes/setup.ts:1-139](file://apps/backend/src/routes/setup.ts#L1-L139)
+- [apps/backend/src/routes/setup.ts:1-151](file://apps/backend/src/routes/setup.ts#L1-L151)
 - [apps/backend/src/routes/health.ts:1-52](file://apps/backend/src/routes/health.ts#L1-L52)
 - [apps/backend/src/routes/profiles.ts:1-162](file://apps/backend/src/routes/profiles.ts#L1-L162)
+- [apps/backend/src/routes/domains.ts:1-78](file://apps/backend/src/routes/domains.ts#L1-L78)
+- [apps/backend/src/routes/envCheck.ts:1-50](file://apps/backend/src/routes/envCheck.ts#L1-L50)
 - [apps/backend/src/middleware/error.ts:1-48](file://apps/backend/src/middleware/error.ts#L1-L48)
 - [apps/backend/src/services/sandboxService.ts:1-148](file://apps/backend/src/services/sandboxService.ts#L1-L148)
 - [apps/backend/src/services/imageService.ts:1-200](file://apps/backend/src/services/imageService.ts#L1-L200)
 - [apps/backend/src/services/setupService.ts:1-147](file://apps/backend/src/services/setupService.ts#L1-L147)
+- [apps/backend/src/services/domainService.ts:1-82](file://apps/backend/src/services/domainService.ts#L1-L82)
+- [apps/backend/src/services/envCheckService.ts:1-415](file://apps/backend/src/services/envCheckService.ts#L1-L415)
 
-章节来源
+**章节来源**
 - [apps/backend/src/server.ts:36-90](file://apps/backend/src/server.ts#L36-L90)
 - [apps/backend/src/routes/index.ts:9-18](file://apps/backend/src/routes/index.ts#L9-L18)
 
@@ -108,7 +124,7 @@ RSetup --> SetupSvc
 - 路由注册
   - 统一在入口注册各业务路由前缀，避免重复逻辑
 
-章节来源
+**章节来源**
 - [apps/backend/src/server.ts:36-90](file://apps/backend/src/server.ts#L36-L90)
 - [apps/backend/src/middleware/error.ts:1-48](file://apps/backend/src/middleware/error.ts#L1-L48)
 - [apps/backend/src/config.ts:48-71](file://apps/backend/src/config.ts#L48-L71)
@@ -137,7 +153,7 @@ E-->>C : "HTTP响应"
 Note over E,MW : "异常在中间件中被捕获并格式化"
 ```
 
-图表来源
+**图表来源**
 - [apps/backend/src/server.ts:36-90](file://apps/backend/src/server.ts#L36-L90)
 - [apps/backend/src/middleware/error.ts:1-48](file://apps/backend/src/middleware/error.ts#L1-L48)
 - [apps/backend/src/routes/sandboxes.ts:96-105](file://apps/backend/src/routes/sandboxes.ts#L96-L105)
@@ -170,11 +186,11 @@ Svc-->>Sbx : "返回信息"
 Sbx-->>Client : "202 + {success : true, data : 扁平化信息}"
 ```
 
-图表来源
+**图表来源**
 - [apps/backend/src/routes/sandboxes.ts:96-105](file://apps/backend/src/routes/sandboxes.ts#L96-L105)
 - [apps/backend/src/services/sandboxService.ts:74-88](file://apps/backend/src/services/sandboxService.ts#L74-L88)
 
-章节来源
+**章节来源**
 - [apps/backend/src/routes/sandboxes.ts:1-175](file://apps/backend/src/routes/sandboxes.ts#L1-L175)
 - [apps/backend/src/services/sandboxService.ts:1-148](file://apps/backend/src/services/sandboxService.ts#L1-L148)
 
@@ -205,10 +221,10 @@ Resp400Dir --> End
 Send --> End
 ```
 
-图表来源
+**图表来源**
 - [apps/backend/src/routes/files.ts:47-69](file://apps/backend/src/routes/files.ts#L47-L69)
 
-章节来源
+**章节来源**
 - [apps/backend/src/routes/files.ts:1-327](file://apps/backend/src/routes/files.ts#L1-L327)
 
 ### 命令执行路由（/api/sandboxes/:sandboxId/commands）
@@ -234,11 +250,11 @@ SDK-->>Cmd : "返回执行结果"
 Cmd-->>Client : "{success : true, data : 执行结果}"
 ```
 
-图表来源
+**图表来源**
 - [apps/backend/src/routes/commands.ts:56-78](file://apps/backend/src/routes/commands.ts#L56-L78)
 - [apps/backend/src/services/sandboxService.ts:112-123](file://apps/backend/src/services/sandboxService.ts#L112-L123)
 
-章节来源
+**章节来源**
 - [apps/backend/src/routes/commands.ts:1-95](file://apps/backend/src/routes/commands.ts#L1-L95)
 - [apps/backend/src/services/sandboxService.ts:112-123](file://apps/backend/src/services/sandboxService.ts#L112-L123)
 
@@ -261,11 +277,11 @@ ISvc-->>Img : "返回任务/状态"
 Img-->>Client : "202 + {success : true, data}"
 ```
 
-图表来源
+**图表来源**
 - [apps/backend/src/routes/images.ts:37-53](file://apps/backend/src/routes/images.ts#L37-L53)
 - [apps/backend/src/services/imageService.ts:196-200](file://apps/backend/src/services/imageService.ts#L196-L200)
 
-章节来源
+**章节来源**
 - [apps/backend/src/routes/images.ts:1-78](file://apps/backend/src/routes/images.ts#L1-L78)
 - [apps/backend/src/services/imageService.ts:1-200](file://apps/backend/src/services/imageService.ts#L1-L200)
 
@@ -295,13 +311,13 @@ Setup->>SS : "saveLocalConfig()"
 Setup-->>Client : "{success : true, data : {configured : true}}"
 ```
 
-图表来源
-- [apps/backend/src/routes/setup.ts:69-120](file://apps/backend/src/routes/setup.ts#L69-L120)
-- [apps/backend/src/routes/setup.ts:122-139](file://apps/backend/src/routes/setup.ts#L122-L139)
+**图表来源**
+- [apps/backend/src/routes/setup.ts:75-121](file://apps/backend/src/routes/setup.ts#L75-L121)
+- [apps/backend/src/routes/setup.ts:123-151](file://apps/backend/src/routes/setup.ts#L123-L151)
 - [apps/backend/src/services/setupService.ts:128-145](file://apps/backend/src/services/setupService.ts#L128-L145)
 
-章节来源
-- [apps/backend/src/routes/setup.ts:1-139](file://apps/backend/src/routes/setup.ts#L1-L139)
+**章节来源**
+- [apps/backend/src/routes/setup.ts:1-151](file://apps/backend/src/routes/setup.ts#L1-L151)
 - [apps/backend/src/services/setupService.ts:1-147](file://apps/backend/src/services/setupService.ts#L1-L147)
 
 ### 健康检查路由（/api/health）
@@ -326,10 +342,10 @@ RespOK --> End
 RespUnready --> End
 ```
 
-图表来源
+**图表来源**
 - [apps/backend/src/routes/health.ts:6-51](file://apps/backend/src/routes/health.ts#L6-L51)
 
-章节来源
+**章节来源**
 - [apps/backend/src/routes/health.ts:1-52](file://apps/backend/src/routes/health.ts#L1-L52)
 
 ### 配置文件管理路由（/api/profiles）
@@ -354,20 +370,82 @@ Srv-->>Prof : "服务已重建"
 Prof-->>Client : "{success : true, data : {configured : true}}"
 ```
 
-图表来源
-- [apps/backend/src/routes/profiles.ts:87-139](file://apps/backend/src/routes/profiles.ts#L87-L139)
+**图表来源**
+- [apps/backend/src/routes/profiles.ts:89-130](file://apps/backend/src/routes/profiles.ts#L89-L130)
 - [apps/backend/src/server.ts:96-118](file://apps/backend/src/server.ts#L96-L118)
 - [apps/backend/src/services/setupService.ts:108-123](file://apps/backend/src/services/setupService.ts#L108-L123)
 
-章节来源
+**章节来源**
 - [apps/backend/src/routes/profiles.ts:1-162](file://apps/backend/src/routes/profiles.ts#L1-L162)
 - [apps/backend/src/server.ts:96-118](file://apps/backend/src/server.ts#L96-L118)
 - [apps/backend/src/services/setupService.ts:108-123](file://apps/backend/src/services/setupService.ts#L108-L123)
+
+### 域名管理路由（/api/domains）
+- 功能概览
+  - 列举域名、添加域名、删除域名、批量更新域名列表
+- 关键实现要点
+  - 域名验证：支持通配符前缀，验证域名格式合法性
+  - 去重与排序：批量更新时检查重复域名
+  - 配置持久化：通过ProfileService管理allowedDomains配置
+- 典型流程（添加域名）
+
+```mermaid
+sequenceDiagram
+participant Client as "客户端"
+participant Dom as "domains路由"
+participant DSvc as "DomainService"
+Client->>Dom : "POST /api/domains"
+Dom->>DSvc : "addDomain(domain)"
+DSvc->>DSvc : "验证域名格式"
+DSvc->>DSvc : "检查重复"
+DSvc->>DSvc : "保存到配置文件"
+DSvc-->>Dom : "返回更新后的域名列表"
+Dom-->>Client : "{success : true, data : domains}"
+```
+
+**图表来源**
+- [apps/backend/src/routes/domains.ts:19-37](file://apps/backend/src/routes/domains.ts#L19-L37)
+- [apps/backend/src/services/domainService.ts:19-38](file://apps/backend/src/services/domainService.ts#L19-L38)
+
+**章节来源**
+- [apps/backend/src/routes/domains.ts:1-78](file://apps/backend/src/routes/domains.ts#L1-L78)
+- [apps/backend/src/services/domainService.ts:1-82](file://apps/backend/src/services/domainService.ts#L1-L82)
+
+### 环境检查路由（/api/env-check）
+- 功能概览
+  - 运行所有环境检查、安装特定组件
+- 关键实现要点
+  - 检查项目：域名配置、Ingress Nginx控制器、Dnsmasq本地DNS
+  - 自动安装：支持一键安装Ingress Nginx和Dnsmasq
+  - 状态报告：详细的检查状态、消息和手动命令指导
+- 典型流程（运行环境检查）
+
+```mermaid
+sequenceDiagram
+participant Client as "客户端"
+participant EC as "envCheck路由"
+participant ECSvc as "envCheckService"
+Client->>EC : "GET /api/env-check"
+EC->>ECSvc : "checkDomainConfig()"
+EC->>ECSvc : "checkIngressNginx()"
+EC->>ECSvc : "checkDnsmasq()"
+ECSvc-->>EC : "返回检查结果数组"
+EC-->>Client : "{success : true, data : [checks]}"
+```
+
+**图表来源**
+- [apps/backend/src/routes/envCheck.ts:15-26](file://apps/backend/src/routes/envCheck.ts#L15-L26)
+- [apps/backend/src/services/envCheckService.ts:17-43](file://apps/backend/src/services/envCheckService.ts#L17-L43)
+
+**章节来源**
+- [apps/backend/src/routes/envCheck.ts:1-50](file://apps/backend/src/routes/envCheck.ts#L1-L50)
+- [apps/backend/src/services/envCheckService.ts:1-415](file://apps/backend/src/services/envCheckService.ts#L1-L415)
 
 ## 依赖关系分析
 - 路由与服务
   - 沙盒路由依赖SandboxService；文件/命令路由通过SandboxService获取已连接实例
   - 镜像路由依赖ImageService；设置路由依赖SetupService与InfraRunner
+  - 域名路由依赖DomainService；环境检查路由依赖envCheckService
 - 中间件与错误处理
   - 全局错误中间件位于路由之后，确保所有异常被统一捕获与格式化
 - 配置与热重载
@@ -380,27 +458,35 @@ RIndex --> RImg["routes/images.ts"]
 RIndex --> RSetup["routes/setup.ts"]
 RIndex --> RHealth["routes/health.ts"]
 RIndex --> RProfiles["routes/profiles.ts"]
+RIndex --> RDomains["routes/domains.ts"]
+RIndex --> REnvCheck["routes/envCheck.ts"]
 RSbx --> SSvc["services/sandboxService.ts"]
 RImg --> ISvc["services/imageService.ts"]
 RSetup --> SetupSvc["services/setupService.ts"]
+RDomains --> DomainSvc["services/domainService.ts"]
+REnvCheck --> EnvCheckSvc["services/envCheckService.ts"]
 S["server.ts"] --> RIndex
 S --> ME["middleware/error.ts"]
 ```
 
-图表来源
+**图表来源**
 - [apps/backend/src/routes/index.ts:9-18](file://apps/backend/src/routes/index.ts#L9-L18)
 - [apps/backend/src/server.ts:36-90](file://apps/backend/src/server.ts#L36-L90)
 - [apps/backend/src/middleware/error.ts:1-48](file://apps/backend/src/middleware/error.ts#L1-L48)
 - [apps/backend/src/routes/sandboxes.ts:1-175](file://apps/backend/src/routes/sandboxes.ts#L1-L175)
 - [apps/backend/src/routes/images.ts:1-78](file://apps/backend/src/routes/images.ts#L1-L78)
-- [apps/backend/src/routes/setup.ts:1-139](file://apps/backend/src/routes/setup.ts#L1-L139)
+- [apps/backend/src/routes/setup.ts:1-151](file://apps/backend/src/routes/setup.ts#L1-L151)
 - [apps/backend/src/routes/health.ts:1-52](file://apps/backend/src/routes/health.ts#L1-L52)
 - [apps/backend/src/routes/profiles.ts:1-162](file://apps/backend/src/routes/profiles.ts#L1-L162)
+- [apps/backend/src/routes/domains.ts:1-78](file://apps/backend/src/routes/domains.ts#L1-L78)
+- [apps/backend/src/routes/envCheck.ts:1-50](file://apps/backend/src/routes/envCheck.ts#L1-L50)
 - [apps/backend/src/services/sandboxService.ts:1-148](file://apps/backend/src/services/sandboxService.ts#L1-L148)
 - [apps/backend/src/services/imageService.ts:1-200](file://apps/backend/src/services/imageService.ts#L1-L200)
 - [apps/backend/src/services/setupService.ts:1-147](file://apps/backend/src/services/setupService.ts#L1-L147)
+- [apps/backend/src/services/domainService.ts:1-82](file://apps/backend/src/services/domainService.ts#L1-L82)
+- [apps/backend/src/services/envCheckService.ts:1-415](file://apps/backend/src/services/envCheckService.ts#L1-L415)
 
-章节来源
+**章节来源**
 - [apps/backend/src/routes/index.ts:9-18](file://apps/backend/src/routes/index.ts#L9-L18)
 - [apps/backend/src/server.ts:36-90](file://apps/backend/src/server.ts#L36-L90)
 
@@ -415,8 +501,10 @@ S --> ME["middleware/error.ts"]
   - 命令执行支持会话模式，减少重复握手开销
 - SSE与并发控制
   - 设置与切换操作使用标志位避免并发冲突，断开连接时及时清理资源
+- 环境检查缓存
+  - 环境检查结果可缓存，避免频繁执行昂贵的系统检查操作
 
-章节来源
+**章节来源**
 - [apps/backend/src/services/sandboxService.ts:17-47](file://apps/backend/src/services/sandboxService.ts#L17-L47)
 - [apps/backend/src/routes/files.ts:213-275](file://apps/backend/src/routes/files.ts#L213-L275)
 - [apps/backend/src/server.ts:40-48](file://apps/backend/src/server.ts#L40-L48)
@@ -434,19 +522,21 @@ S --> ME["middleware/error.ts"]
 - 常见问题定位
   - 未配置：沙盒路由返回503提示需先完成设置
   - 连接失败：健康检查返回opensandboxReady=false
-  - 参数缺失：文件/命令路由对必填字段进行校验并返回400
+  - 参数缺失：文件/命令/域名路由对必填字段进行校验并返回400
+  - 域名格式错误：域名管理路由返回INVALID_DOMAIN错误
 - 日志与追踪
   - 请求ID用于跨服务关联日志，错误中间件记录请求方法、路径、状态码与异常
 
-章节来源
+**章节来源**
 - [apps/backend/src/middleware/error.ts:1-48](file://apps/backend/src/middleware/error.ts#L1-L48)
 - [apps/backend/src/routes/sandboxes.ts:34-45](file://apps/backend/src/routes/sandboxes.ts#L34-L45)
 - [apps/backend/src/routes/health.ts:24-50](file://apps/backend/src/routes/health.ts#L24-L50)
 - [apps/backend/src/routes/files.ts:53-62](file://apps/backend/src/routes/files.ts#L53-L62)
 - [apps/backend/src/routes/commands.ts:19-22](file://apps/backend/src/routes/commands.ts#L19-L22)
+- [apps/backend/src/routes/domains.ts:25-27](file://apps/backend/src/routes/domains.ts#L25-L27)
 
 ## 结论
-该API路由系统以清晰的分层与中间件机制为基础，围绕沙盒生命周期、文件与命令操作、镜像管理、设置向导与健康检查构建了完整的REST能力。通过统一的错误处理、请求ID追踪与服务热重载，系统在可维护性、可观测性与可扩展性方面具备良好基础。建议在生产环境中进一步完善鉴权与速率限制、接入API网关与监控告警体系。
+该API路由系统以清晰的分层与中间件机制为基础，围绕沙盒生命周期、文件与命令操作、镜像管理、设置向导、健康检查、配置文件管理、环境检查与域名管理构建了完整的REST能力。通过统一的错误处理、请求ID追踪与服务热重载，系统在可维护性、可观测性与可扩展性方面具备良好基础。新增的环境检查和域名管理功能进一步增强了平台的自动化部署和访问控制能力。建议在生产环境中进一步完善鉴权与速率限制、接入API网关与监控告警体系。
 
 ## 附录：API调用示例与规范
 
@@ -456,7 +546,7 @@ S --> ME["middleware/error.ts"]
 - 失败响应
   - 结构：{ success: false, error: { code: string, message: string, requestId?: string } }
 
-章节来源
+**章节来源**
 - [apps/backend/src/types/index.ts:3-11](file://apps/backend/src/types/index.ts#L3-L11)
 
 ### 版本控制策略
@@ -465,6 +555,7 @@ S --> ME["middleware/error.ts"]
 
 ### HTTP状态码规范
 - 200 OK：常规成功响应
+- 201 Created：资源创建成功
 - 202 Accepted：异步任务提交成功（如镜像拉取）
 - 204 No Content：删除成功但无返回体
 - 400 Bad Request：参数缺失或非法
@@ -476,7 +567,7 @@ S --> ME["middleware/error.ts"]
 - 504 Gateway Timeout：SDK超时
 - 509：自定义（Ready超时）
 
-章节来源
+**章节来源**
 - [apps/backend/src/middleware/error.ts:33-47](file://apps/backend/src/middleware/error.ts#L33-L47)
 - [apps/backend/src/routes/sandboxes.ts:34-45](file://apps/backend/src/routes/sandboxes.ts#L34-L45)
 - [apps/backend/src/routes/images.ts:37-53](file://apps/backend/src/routes/images.ts#L37-L53)
@@ -611,12 +702,39 @@ S --> ME["middleware/error.ts"]
     - 方法与路径：POST /api/profiles/{id}/test
     - 响应：200 + { connected, error? }
 
-章节来源
+- 域名管理
+  - 列举域名
+    - 方法与路径：GET /api/domains
+    - 响应：200 + 域名字符串数组
+  - 添加域名
+    - 方法与路径：POST /api/domains
+    - 请求体字段：domain (必需)
+    - 响应：201 + 更新后的域名数组
+  - 删除域名
+    - 方法与路径：DELETE /api/domains/{domain}
+    - 响应：200 + 更新后的域名数组
+  - 批量更新域名
+    - 方法与路径：PUT /api/domains
+    - 请求体字段：domains[] (必需，必须为数组)
+    - 响应：200 + 更新后的域名数组
+
+- 环境检查
+  - 运行所有环境检查
+    - 方法与路径：GET /api/env-check
+    - 响应：200 + 检查项目数组，每项包含id、name、description、status、message等
+  - 安装特定组件
+    - 方法与路径：POST /api/env-check/:id/install
+    - 路径参数：id 可为 "ingress-nginx" 或 "dnsmasq"
+    - 响应：200 + 安装结果（包含状态和消息）
+
+**章节来源**
 - [apps/backend/src/routes/sandboxes.ts:62-175](file://apps/backend/src/routes/sandboxes.ts#L62-L175)
 - [apps/backend/src/routes/files.ts:19-207](file://apps/backend/src/routes/files.ts#L19-L207)
 - [apps/backend/src/routes/commands.ts:12-95](file://apps/backend/src/routes/commands.ts#L12-L95)
 - [apps/backend/src/routes/images.ts:14-78](file://apps/backend/src/routes/images.ts#L14-L78)
-- [apps/backend/src/routes/setup.ts:17-139](file://apps/backend/src/routes/setup.ts#L17-L139)
+- [apps/backend/src/routes/setup.ts:17-151](file://apps/backend/src/routes/setup.ts#L17-L151)
 - [apps/backend/src/routes/health.ts:6-51](file://apps/backend/src/routes/health.ts#L6-L51)
 - [apps/backend/src/routes/profiles.ts:17-162](file://apps/backend/src/routes/profiles.ts#L17-L162)
+- [apps/backend/src/routes/domains.ts:11-78](file://apps/backend/src/routes/domains.ts#L11-L78)
+- [apps/backend/src/routes/envCheck.ts:15-50](file://apps/backend/src/routes/envCheck.ts#L15-L50)
 - [apps/backend/src/types/index.ts:13-89](file://apps/backend/src/types/index.ts#L13-L89)

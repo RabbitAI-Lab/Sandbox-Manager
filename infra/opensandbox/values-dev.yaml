@@ -30,4 +30,8 @@ configToml: |
   informer_enabled = true
 
   [ingress]
-  mode = "direct"
+  mode = "gateway"
+
+  [ingress.gateway]
+  address = "*.sandbox.localhost"
+  route.mode = "wildcard"
