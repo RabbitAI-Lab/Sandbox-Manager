@@ -29,6 +29,7 @@ export function DashboardPage() {
   return (
     <AppShell
       title="RabbitAI-Lab OpenSandbox"
+      configured
       actions={
         <div className="flex items-center gap-3">
           <Button variant="secondary" onClick={() => navigate("/images")}>

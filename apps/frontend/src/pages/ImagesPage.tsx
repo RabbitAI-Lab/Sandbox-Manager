@@ -23,6 +23,7 @@ export function ImagesPage() {
     <AppShell
       title="Image Management"
       onBack={() => navigate("/dashboard")}
+      configured
       actions={
         <Button onClick={() => setShowPull(true)}>
           + Pull Image

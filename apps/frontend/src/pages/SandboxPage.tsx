@@ -51,7 +51,7 @@ export function SandboxPage() {
 
   if (loading) {
     return (
-      <AppShell title="Loading..." onBack={() => navigate("/dashboard")}>
+      <AppShell title="Loading..." onBack={() => navigate("/dashboard")} configured>
         <div className="flex items-center justify-center h-full text-gray-400">
           Loading sandbox...
         </div>
@@ -61,7 +61,7 @@ export function SandboxPage() {
 
   if (error || !sandbox) {
     return (
-      <AppShell title="Sandbox Not Found" onBack={() => navigate("/dashboard")}>
+      <AppShell title="Sandbox Not Found" onBack={() => navigate("/dashboard")} configured>
         <div className="flex flex-col items-center justify-center h-full gap-4">
           <div className="text-red-500 text-sm">
             {error ?? "Sandbox not found or has expired."}
@@ -78,23 +78,11 @@ export function SandboxPage() {
     <AppShell
       title={sandbox.name || sandbox.id}
       onBack={() => navigate("/dashboard")}
+      configured
       actions={
         <div className="flex items-center gap-3">
           <StatusBadge status={sandbox.status} />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => addSession(sandboxId!)}
-          >
-            + New Terminal
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowFileViewer(!showFileViewer)}
-          >
-            {showFileViewer ? "Hide Viewer" : "Show Viewer"}
-          </Button>
+
         </div>
       }
     >

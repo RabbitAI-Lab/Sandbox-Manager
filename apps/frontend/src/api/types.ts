@@ -113,3 +113,44 @@ export interface CachedImage {
   node: string;
   sizeBytes?: number;
 }
+
+// Server Profile types
+
+export interface ServerProfile {
+  id: string;
+  name: string;
+  serverUrl: string;
+  apiKey: string;
+  protocol: "http" | "https";
+  createdAt: string;
+}
+
+export interface CreateProfileBody {
+  name: string;
+  serverUrl: string;
+  apiKey: string;
+  protocol: "http" | "https";
+}
+
+export interface UpdateProfileBody {
+  name?: string;
+  serverUrl?: string;
+  apiKey?: string;
+  protocol?: "http" | "https";
+}
+
+export interface CheckItem {
+  id: string;
+  name: string;
+  description: string;
+  status: "checking" | "passed" | "failed" | "installing";
+  message?: string;
+  installable?: boolean;
+  configurable?: boolean;
+  manualCommand?: string;
+}
+
+export interface ProfilesListResponse {
+  profiles: ServerProfile[];
+  activeProfileId: string | null;
+}

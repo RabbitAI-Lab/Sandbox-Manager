@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { SetupService } from "../services/setupService.js";
+import { ProfileService } from "../services/profileService.js";
 import { InfraRunner } from "../services/infraRunner.js";
 import { loadConfig } from "../config.js";
 import { reinitializeServices } from "../server.js";
@@ -55,7 +56,11 @@ setupRouter.post("/remote", async (req, res) => {
   }
 
   try {
-    await setupService.saveRemoteConfig({ serverUrl, apiKey, protocol: protocol ?? "http" });
+    const proto = protocol ?? "http";
+    await setupService.saveRemoteConfig({ serverUrl, apiKey, protocol: proto });
+    // Sync the config into servers.json so it appears in the settings modal
+    const profileService = new ProfileService(logger);
+    profileService.ensureProfile({ name: "Remote Server", serverUrl, apiKey, protocol: proto });
     const newConfig = loadConfig();
     await reinitializeServices(app, newConfig, logger);
     res.json({ success: true, data: { configured: true } });
@@ -88,12 +93,9 @@ setupRouter.get("/local-k8s/stream", (req: Request, res: Response) => {
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   };
 
-  // Handle client disconnect — only stop port-forward if setup hasn't succeeded
+  // Handle client disconnect
   req.on("close", () => {
     logger.info("Client disconnected from setup SSE stream");
-    if (!setupSucceeded) {
-      infraRunner.stopPortForward();
-    }
     setupInProgress = false;
   });
 
@@ -105,8 +107,6 @@ setupRouter.get("/local-k8s/stream", (req: Request, res: Response) => {
     .then(() => {
       setupSucceeded = true;
       sendSSE("done", { success: true });
-      // Update the global infraRunner reference used by index.ts for shutdown
-      (req.app.locals as Record<string, unknown>).infraRunner = infraRunner;
       res.end();
     })
     .catch((err) => {
@@ -127,6 +127,14 @@ setupRouter.post("/complete", async (req, res) => {
 
   try {
     await setupService.saveLocalConfig();
+    // Sync the config into servers.json so it appears in the settings modal
+    const profileService = new ProfileService(logger);
+    profileService.ensureProfile({
+      name: "Local Kubernetes",
+      serverUrl: "osb.sandbox.localhost",
+      apiKey: "dev-api-key-change-in-prod",
+      protocol: "http",
+    });
     const newConfig = loadConfig();
     await reinitializeServices(app, newConfig, logger);
     res.json({ success: true, data: { configured: true } });

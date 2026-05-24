@@ -29,15 +29,13 @@ else
   echo "  apps/backend/.env already exists, skipping"
 fi
 
-# Step 4: Start port-forward
-echo "[4/4] Starting port-forward to OpenSandbox Server..."
-PF_PID=$(pgrep -f "port-forward svc/opensandbox-server" || true)
-if [ -n "$PF_PID" ]; then
-  echo "  Port-forward already running (PID: $PF_PID)"
+# Step 4: Verify gateway access
+echo "[4/4] Verifying gateway access..."
+if curl -s http://osb.sandbox.localhost/health 2>/dev/null | grep -q "healthy"; then
+  echo "  Server API: OK (http://osb.sandbox.localhost)"
 else
-  kubectl port-forward svc/opensandbox-server 8080:80 -n opensandbox-system &
-  PF_PID=$!
-  echo "  Port-forward started (PID: $PF_PID)"
+  echo "  Warning: Server API not reachable at http://osb.sandbox.localhost"
+  echo "  Ensure Ingress rules are applied: kubectl apply -f infra/opensandbox/"
 fi
 
 echo ""
@@ -47,5 +45,3 @@ echo "Next steps:"
 echo "  Terminal 1: ./scripts/dev-backend.sh"
 echo "  Terminal 2: ./scripts/dev-frontend.sh"
 echo "  Browser:    http://localhost:5173"
-echo ""
-echo "To stop port-forward: kill $PF_PID"

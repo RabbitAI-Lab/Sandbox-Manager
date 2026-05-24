@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sandbox-server-ingress
+  namespace: opensandbox-system
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - osb.sandbox.localhost
+      secretName: sandbox-wildcard-tls
+  rules:
+    - host: osb.sandbox.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: opensandbox-server
+                port:
+                  number: 80

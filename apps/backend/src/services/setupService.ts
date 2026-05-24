@@ -129,14 +129,14 @@ export class SetupService {
     this.logger.info("Saving local K8s config");
 
     writeEnvFile(this.envPath, {
-      OPENSANDBOX_SERVER_URL: "localhost:8080",
+      OPENSANDBOX_SERVER_URL: "osb.sandbox.localhost",
       OPENSANDBOX_API_KEY: "dev-api-key-change-in-prod",
       OPENSANDBOX_PROTOCOL: "http",
       OPENSANDBOX_USE_SERVER_PROXY: "false",
     });
 
     // Update process.env
-    process.env.OPENSANDBOX_SERVER_URL = "localhost:8080";
+    process.env.OPENSANDBOX_SERVER_URL = "osb.sandbox.localhost";
     process.env.OPENSANDBOX_API_KEY = "dev-api-key-change-in-prod";
     process.env.OPENSANDBOX_PROTOCOL = "http";
     process.env.OPENSANDBOX_USE_SERVER_PROXY = "false";

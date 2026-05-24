@@ -1,4 +1,3 @@
-import { spawn, type ChildProcess } from "node:child_process";
 import type { Logger } from "../logger.js";
 import { runCommand } from "../utils/runCommand.js";
 
@@ -25,128 +24,9 @@ interface Step {
  */
 export class InfraRunner {
   private logger: Logger;
-  private portForwardProcs: ChildProcess[] = [];
-  private manualStop = false;
 
   constructor(logger: Logger) {
     this.logger = logger;
-  }
-
-  /**
-   * Start a single port-forward process.
-   */
-  private startSinglePortForward(
-    resource: string,
-    localPort: number,
-    remotePort: number,
-    namespace: string,
-  ): Promise<ChildProcess> {
-    return new Promise((resolve, reject) => {
-      const proc = spawn(
-        "kubectl",
-        ["port-forward", resource, `${localPort}:${remotePort}`, "-n", namespace],
-        { stdio: ["ignore", "pipe", "pipe"], detached: false, shell: true, env: process.env },
-      );
-
-      let started = false;
-      const timer = setTimeout(() => {
-        if (!started) {
-          proc.kill();
-          reject(new Error(`Port-forward ${resource} did not start within 15s`));
-        }
-      }, 15_000);
-
-      const checkStarted = (data: Buffer) => {
-        const msg = data.toString();
-        this.logger.debug({ msg: msg.trim() }, "port-forward");
-        if (msg.includes("Forwarding") && !started) {
-          started = true;
-          clearTimeout(timer);
-          resolve(proc);
-        }
-      };
-
-      proc.stdout!.on("data", checkStarted);
-      proc.stderr!.on("data", checkStarted);
-
-      proc.on("error", (err) => {
-        clearTimeout(timer);
-        reject(err);
-      });
-
-      proc.on("exit", (code) => {
-        clearTimeout(timer);
-        if (!started) reject(new Error(`Port-forward ${resource} exited with code ${code}`));
-      });
-    });
-  }
-
-  /**
-   * Start port-forwards for both server and gateway.
-   * Resolves when both are confirmed active.
-   */
-  async startPortForward(localPort = 8080, remotePort = 80): Promise<void> {
-    this.manualStop = false;
-
-    // Kill any existing port-forwards
-    try {
-      await runCommand("sh", ["-c", "pkill -f 'port-forward.*opensandbox' || true"], this.logger, 5_000);
-    } catch { /* ignore */ }
-    this.portForwardProcs = [];
-
-    // Start server port-forward
-    const serverProc = await this.startSinglePortForward(
-      "svc/opensandbox-server", localPort, remotePort, "opensandbox-system",
-    );
-    this.portForwardProcs.push(serverProc);
-    this.logger.info({ localPort }, "Server port-forward active on localhost:%d", localPort);
-
-    // Start gateway port-forward (gateway is needed for sandbox execd access)
-    try {
-      const gatewayProc = await this.startSinglePortForward(
-        "svc/opensandbox-ingress-gateway", 8081, 80, "opensandbox-system",
-      );
-      this.portForwardProcs.push(gatewayProc);
-      this.logger.info("Gateway port-forward active on localhost:8081");
-
-      // Auto-restart all on unexpected exit of either process
-      for (const proc of this.portForwardProcs) {
-        proc.on("exit", (code, signal) => {
-          if (!this.manualStop) {
-            this.logger.warn({ code, signal }, "Port-forward exited unexpectedly, restarting in 3s...");
-            this.portForwardProcs = [];
-            setTimeout(() => {
-              this.startPortForward(localPort, remotePort).catch((err) => {
-                this.logger.error({ err: err instanceof Error ? err.message : String(err) }, "Failed to restart port-forward");
-              });
-            }, 3000);
-          }
-        });
-      }
-    } catch (err) {
-      // Gateway might not exist if not using gateway mode — non-fatal
-      this.logger.warn({ err: err instanceof Error ? err.message : String(err) },
-        "Gateway port-forward failed (non-fatal, gateway may not be deployed)");
-    }
-  }
-
-  /**
-   * Stop all port-forward child processes.
-   */
-  stopPortForward(): void {
-    this.manualStop = true;
-    for (const proc of this.portForwardProcs) {
-      if (!proc.killed) proc.kill("SIGTERM");
-    }
-    this.portForwardProcs = [];
-    this.logger.info("Port-forwards stopped");
-  }
-
-  /**
-   * Get the PID of the first running port-forward process.
-   */
-  getPortForwardPid(): number | null {
-    return this.portForwardProcs[0]?.pid ?? null;
   }
 
   /**
@@ -283,6 +163,48 @@ export class InfraRunner {
         },
       },
       {
+        step: "helm-uninstall",
+        label: "Removing previous OpenSandbox installation...",
+        weight: 5,
+        run: async () => {
+          const checkResult = await runCommand(
+            "helm",
+            ["status", "opensandbox-controller", "-n", "opensandbox-system"],
+            this.logger,
+            10_000,
+          ).catch(() => null);
+
+          if (!checkResult || checkResult.code !== 0) {
+            emitOutput("helm-uninstall", "Removing previous OpenSandbox installation...", "No previous installation found, skipping", 27);
+            return;
+          }
+
+          emitOutput("helm-uninstall", "Removing previous OpenSandbox installation...", "Running helm uninstall...", 27);
+          await runCommand(
+            "helm",
+            ["uninstall", "opensandbox-controller", "-n", "opensandbox-system"],
+            this.logger,
+            60_000,
+          );
+
+          // Wait for all pods to terminate
+          emitOutput("helm-uninstall", "Removing previous OpenSandbox installation...", "Waiting for pods to terminate...", 27);
+          for (let i = 0; i < 30; i++) {
+            const podCheck = await runCommand(
+              "sh",
+              ["-c", "kubectl get pods -n opensandbox-system -o jsonpath='{.items[*].status.phase}' 2>/dev/null"],
+              this.logger,
+              5_000,
+            ).catch(() => null);
+            const phases = podCheck?.stdout?.trim() ?? "";
+            if (phases.length === 0) {
+              break;
+            }
+            await new Promise((r) => setTimeout(r, 2000));
+          }
+        },
+      },
+      {
         step: "helm-install",
         label: "Installing OpenSandbox (this may take a few minutes)...",
         weight: 40,
@@ -316,28 +238,17 @@ export class InfraRunner {
             throw new Error(`Helm dependency build failed: ${depResult.stderr.trim()}`);
           }
 
-          // Check if already installed
-          const checkResult = await runCommand(
-            "helm",
-            ["status", "opensandbox-controller", "-n", "opensandbox-system"],
-            this.logger,
-            10_000,
-          ).catch(() => null);
+          emitOutput("helm-install", "Installing OpenSandbox...", "Running helm install...", 33);
 
-          const subcommand = checkResult?.code === 0 ? "upgrade" : "install";
-          const action = subcommand === "upgrade" ? "Upgrading" : "Installing";
-
-          emitOutput("helm-install", `${action} OpenSandbox...`, `Running helm ${subcommand}...`, 30);
-
-          // Write a temporary values file with the correct config
+          // Write a temporary values file with gateway wildcard config
           const { writeFileSync, unlinkSync } = await import("node:fs");
           const tmpValues = "/tmp/opensandbox-setup-values.yaml";
           writeFileSync(tmpValues, `opensandbox-server:
   server:
     gateway:
       enabled: true
-      host: "localhost:8081"
-      gatewayRouteMode: "header"
+      host: "*.sandbox.localhost"
+      gatewayRouteMode: "wildcard"
   configToml: |
     [server]
     host = "0.0.0.0"
@@ -360,6 +271,7 @@ export class InfraRunner {
     [egress]
     image = "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/egress:v1.0.12"
     mode = "dns+nft"
+
 opensandbox-controller:
   controller:
     snapshot:
@@ -369,7 +281,7 @@ opensandbox-controller:
           const result = await runCommand(
             "helm",
             [
-              subcommand,
+              "install",
               "opensandbox-controller",
               chartDir,
               "-n",
@@ -385,7 +297,7 @@ opensandbox-controller:
               // Stream helm output to the frontend in real-time
               const lines = chunk.trim();
               if (lines) {
-                emitOutput("helm-install", `${action} OpenSandbox...`, lines, 30);
+                emitOutput("helm-install", "Installing OpenSandbox...", lines, 30);
               }
             },
           );
@@ -394,15 +306,51 @@ opensandbox-controller:
           try { unlinkSync(tmpValues); } catch { /* ignore */ }
 
           if (result.code !== 0) {
-            throw new Error(`Helm ${subcommand} failed: ${result.stderr.trim()}`);
+            throw new Error(`Helm install failed: ${result.stderr.trim()}`);
           }
-          emitOutput("helm-install", `${action} OpenSandbox...`, "Helm install complete", 65);
+          emitOutput("helm-install", "Installing OpenSandbox...", "Helm install complete", 55);
+        },
+      },
+      {
+        step: "post-install",
+        label: "Configuring gateway and ingress...",
+        weight: 10,
+        run: async () => {
+          // Patch ingress gateway --mode from wildcard (server route mode) to header (gateway discovery mode)
+          // Helm chart template reuses gatewayRouteMode for both Server config and Gateway --mode flag,
+          // but the Gateway binary only supports "header" mode for service discovery.
+          emitOutput("post-install", "Configuring gateway mode...", "Patching ingress gateway --mode=header...", 57);
+          await runCommand(
+            "kubectl",
+            [
+              "patch", "deployment", "opensandbox-ingress-gateway",
+              "-n", "opensandbox-system",
+              "--type=json",
+              "-p", `[{"op":"replace","path":"/spec/template/spec/containers/0/args","value":["--namespace=opensandbox","--port=28888","--provider-type=batchsandbox","--mode=header","--log-level=info"]}]`,
+            ],
+            this.logger,
+            30_000,
+          );
+
+          // Apply sandbox ingress rules
+          emitOutput("post-install", "Applying ingress rules...", "Creating K8s Ingress rules...", 60);
+          const { existsSync } = await import("node:fs");
+          const projectRoot = new URL("../../../..", import.meta.url).pathname.replace(/\/$/, "");
+          const ingressFiles = ["sandbox-ingress.yaml", "server-ingress.yaml"];
+          for (const f of ingressFiles) {
+            const p = `${projectRoot}/infra/opensandbox/${f}`;
+            if (existsSync(p)) {
+              await runCommand("kubectl", ["apply", "-f", p], this.logger, 15_000);
+            }
+          }
+
+          emitOutput("post-install", "Configuring gateway and ingress...", "Post-install configuration complete", 65);
         },
       },
       {
         step: "wait-pods",
         label: "Waiting for pods to be ready...",
-        weight: 15,
+        weight: 10,
         run: async () => {
           const result = await runCommand(
             "kubectl",
@@ -453,7 +401,8 @@ spec:
     spec:
       containers:
       - name: sandbox
-        image: ubuntu:22.04
+        image: ghcr.io/rabbitai-lab/claude-code:latest
+        command: ["sleep", "infinity"]
   capacitySpec:
     bufferMax: 3
     bufferMin: 1
@@ -474,12 +423,29 @@ spec:
         },
       },
       {
-        step: "port-forward",
-        label: "Starting port-forward...",
+        step: "verify-gateway",
+        label: "Verifying gateway access...",
         weight: 15,
         run: async () => {
-          await this.startPortForward(8080, 80);
-          emitOutput("port-forward", "Starting port-forward...", "Port-forward active on localhost:8080", 100);
+          // Kill any stale port-forward processes
+          try {
+            await runCommand("sh", ["-c", "pkill -f 'port-forward.*opensandbox' || true"], this.logger, 5_000);
+          } catch { /* ignore */ }
+
+          emitOutput("verify-gateway", "Verifying gateway access...", "Checking http://osb.sandbox.localhost/health...", 90);
+          const healthResult = await runCommand(
+            "curl",
+            ["-s", "http://osb.sandbox.localhost/health"],
+            this.logger,
+            10_000,
+          );
+          if (healthResult.code !== 0 || !healthResult.stdout.includes("healthy")) {
+            emitOutput("verify-gateway", "Verifying gateway access...", "Warning: Server health check failed (may need Ingress rules applied)", 92);
+          } else {
+            emitOutput("verify-gateway", "Verifying gateway access...", "Server health check passed", 95);
+          }
+
+          emitOutput("verify-gateway", "Verifying gateway access...", "Gateway ready", 100);
         },
       },
     ];
