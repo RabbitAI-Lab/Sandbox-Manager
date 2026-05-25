@@ -238,6 +238,97 @@ pnpm build:backend
 pnpm build:frontend
 ```
 
+## 生产部署
+
+项目通过 GitHub Actions 自动构建 Docker 镜像和 Helm Chart，并推送至 GitHub Container Registry (GHCR)。部署时**无需 clone 代码**，直接从 GHCR 拉取即可。
+
+### CI/CD 工作流
+
+推送代码到 `main` 分支或创建 `v*` 标签时，自动触发构建：
+
+| 触发条件 | 产物 |
+|----------|------|
+| Push `main` | Docker 镜像 (`latest`, `sha-<commit>`) + Helm Chart |
+| Push tag `v0.1.0` | Docker 镜像 (`v0.1.0`, `latest`, `sha-<commit>`) + Helm Chart |
+
+发布地址：
+- **Helm Chart**: `oci://ghcr.io/rabbitai-lab/sandbox-platform`
+- **Backend 镜像**: `ghcr.io/rabbitai-lab/sandbox-manager/backend`
+- **Frontend 镜像**: `ghcr.io/rabbitai-lab/sandbox-manager/frontend`
+
+### 前置条件
+
+- **Kubernetes 集群**（任意可用的 K8s 集群）
+- **kubectl** 和 **helm**（需支持 OCI，Helm >= 3.8.0）
+- **Nginx Ingress Controller** 已安装 — sandbox-platform 内部的 Setup Wizard 会自动完成此步骤
+
+### 步骤 1: 部署 sandbox-platform
+
+Chart 从 GHCR (OCI) 拉取，values 通过 GitHub raw URL 加载，完全无需 clone 代码：
+
+```bash
+helm install sandbox-platform oci://ghcr.io/rabbitai-lab/sandbox-platform \
+  -f https://raw.githubusercontent.com/RabbitAI-Lab/Sandbox-Manager/main/infra/helm/sandbox-platform/values-ghcr.yaml \
+  --wait --timeout 120s
+```
+
+> `-f` 支持直接读取远程 URL，`values-ghcr.yaml` 将镜像地址指向 GHCR 并设置 `pullPolicy: Always`。
+
+如果要部署到生产域名（如 `sandbox.rabbitai-lab.com`），叠加生产配置：
+
+```bash
+helm install sandbox-platform oci://ghcr.io/rabbitai-lab/sandbox-platform \
+  -f https://raw.githubusercontent.com/RabbitAI-Lab/Sandbox-Manager/main/infra/helm/sandbox-platform/values-ghcr.yaml \
+  -f https://raw.githubusercontent.com/RabbitAI-Lab/Sandbox-Manager/main/infra/helm/sandbox-platform/values-production.yaml \
+  --wait --timeout 120s
+```
+
+> 本地开发时仍可使用本地路径：`-f infra/helm/sandbox-platform/values-ghcr.yaml`
+
+### 步骤 2: 配置 DNS 解析
+
+**本地开发环境**（macOS + dnsmasq）：
+
+```bash
+# dnsmasq 配置 (/etc/dnsmasq.d/sandbox-domains.conf)
+address=/sandbox.localhost/127.0.0.1
+
+# macOS resolver (/etc/resolver/sandbox.localhost)
+nameserver 127.0.0.1
+```
+
+**生产环境**：将域名（如 `sandbox.rabbitai-lab.com`）的 DNS A 记录指向集群 Ingress Controller 所在节点的 IP。
+
+### 步骤 3: 访问平台
+
+```bash
+# 本地开发
+open http://sandbox.localhost
+
+# 生产环境
+open https://sandbox.rabbitai-lab.com
+```
+
+### 更新部署
+
+代码更新后，GitHub Actions 自动构建新镜像和 Chart。然后升级 Helm release：
+
+```bash
+helm upgrade sandbox-platform oci://ghcr.io/rabbitai-lab/sandbox-platform \
+  -f https://raw.githubusercontent.com/RabbitAI-Lab/Sandbox-Manager/main/infra/helm/sandbox-platform/values-ghcr.yaml \
+  --wait --timeout 120s
+```
+
+### 卸载
+
+```bash
+# 卸载平台
+helm uninstall sandbox-platform
+
+# 卸载 OpenSandbox 基础设施
+bash infra/opensandbox/uninstall.sh
+```
+
 ## API 概览
 
 | 方法 | 路径 | 说明 |
