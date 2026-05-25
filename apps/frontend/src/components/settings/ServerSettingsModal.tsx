@@ -11,7 +11,7 @@ type FormMode = "idle" | "add" | "edit";
 
 export function ServerSettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { profiles, activeProfileId, loading, switching, fetchProfiles, createProfile, updateProfile, deleteProfile, switchProfile, error, clearError } = useProfileStore();
-  const { domains, loading: domainsLoading, fetchDomains, addDomain, removeDomain, error: domainError, clearError: clearDomainError } = useDomainStore();
+  const { domains, activeDomain, loading: domainsLoading, fetchDomains, addDomain, removeDomain, activateDomain, error: domainError, clearError: clearDomainError } = useDomainStore();
 
   const [formMode, setFormMode] = useState<FormMode>("idle");
   const [editingProfile, setEditingProfile] = useState<ServerProfile | null>(null);
@@ -397,17 +397,40 @@ export function ServerSettingsModal({ open, onClose }: { open: boolean; onClose:
                 </div>
               ) : (
                 domains.map((domain) => (
-                  <div key={domain} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2">
-                    <span className="text-sm font-mono text-gray-800 truncate">{domain}</span>
-                    <button
-                      onClick={() => handleRemoveDomain(domain)}
-                      className="text-xs text-gray-400 hover:text-red-600 shrink-0 ml-2 p-0.5 rounded hover:bg-red-50"
-                      title="Remove domain"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+                  <div key={domain} className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
+                    domain === activeDomain
+                      ? "border-green-300 bg-green-50"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      {domain === activeDomain ? (
+                        <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+                      ) : (
+                        <span className="w-2 h-2 rounded-full bg-gray-300 shrink-0" />
+                      )}
+                      <span className="text-sm font-mono text-gray-800 truncate">{domain}</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0 ml-2">
+                      {domain !== activeDomain ? (
+                        <button
+                          onClick={() => activateDomain(domain)}
+                          className="text-xs font-medium text-blue-600 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50"
+                        >
+                          Enable
+                        </button>
+                      ) : (
+                        <span className="text-xs font-medium text-green-600 px-2 py-1">Active</span>
+                      )}
+                      <button
+                        onClick={() => handleRemoveDomain(domain)}
+                        className="text-xs text-gray-400 hover:text-red-600 p-0.5 rounded hover:bg-red-50"
+                        title="Remove domain"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 ))
               )}

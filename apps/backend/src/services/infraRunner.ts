@@ -313,8 +313,9 @@ export class InfraRunner {
           // Write a temporary values file with gateway wildcard config
           const domainService = new DomainService(this.logger);
           const domains = domainService.listDomains();
-          // Domain may already have *. prefix (e.g. "*.sandbox.localhost"), use as-is
-          const primaryDomain = domains.length > 0 ? domains[0] : "sandbox.localhost";
+          const activeDomain = domainService.getActiveDomain();
+          // Use active domain if set, otherwise fall back to first domain
+          const primaryDomain = activeDomain ?? (domains.length > 0 ? domains[0] : "sandbox.localhost");
           const gatewayHost = primaryDomain.startsWith("*.") ? primaryDomain : `*.${primaryDomain}`;
 
           const { writeFileSync, unlinkSync } = await import("node:fs");
@@ -384,34 +385,49 @@ opensandbox-controller:
           if (result.code !== 0) {
             throw new Error(`Helm install failed: ${result.stderr.trim()}`);
           }
-          emitOutput("helm-install", "Installing OpenSandbox...", "Helm install complete", 55);
+          emitOutput("helm-install", "Installing OpenSandbox...", "Helm install complete", 50);
+
+          // Patch ingress gateway --mode from wildcard to header immediately after Helm.
+          // The chart template reuses gatewayRouteMode for both Server config and Gateway --mode,
+          // but Gateway only supports "header" mode. We patch it here so that if later steps fail,
+          // the Gateway is still correctly configured.
+          // NOTE: Use sh -c to avoid shell:true parsing issues with JSON brackets in runCommand.
+          emitOutput("helm-install", "Installing OpenSandbox...", "Patching ingress gateway --mode=header...", 53);
+          const patchJson = '[{"op":"replace","path":"/spec/template/spec/containers/0/args","value":["--namespace=opensandbox","--port=28888","--provider-type=batchsandbox","--mode=header","--log-level=info"]}]';
+          const patchResult = await runCommand(
+            "sh",
+            ["-c", `kubectl patch deployment opensandbox-ingress-gateway -n opensandbox-system --type=json -p '${patchJson}'`],
+            this.logger,
+            30_000,
+          );
+          if (patchResult.code !== 0) {
+            this.logger.warn({ stderr: patchResult.stderr }, "Gateway mode patch failed (non-fatal)");
+          }
+
+          // Wait for the patched gateway pods to roll out before proceeding
+          emitOutput("helm-install", "Installing OpenSandbox...", "Waiting for gateway rollout...", 55);
+          await runCommand(
+            "kubectl",
+            [
+              "rollout", "status", "deployment/opensandbox-ingress-gateway",
+              "-n", "opensandbox-system",
+              "--timeout=120s",
+            ],
+            this.logger,
+            130_000,
+          );
         },
       },
       {
         step: "post-install",
-        label: "Configuring gateway and ingress...",
+        label: "Applying ingress rules...",
         weight: 10,
         run: async () => {
-          // Patch ingress gateway --mode from wildcard (server route mode) to header (gateway discovery mode)
-          // Helm chart template reuses gatewayRouteMode for both Server config and Gateway --mode flag,
-          // but the Gateway binary only supports "header" mode for service discovery.
-          emitOutput("post-install", "Configuring gateway mode...", "Patching ingress gateway --mode=header...", 57);
-          await runCommand(
-            "kubectl",
-            [
-              "patch", "deployment", "opensandbox-ingress-gateway",
-              "-n", "opensandbox-system",
-              "--type=json",
-              "-p", `[{"op":"replace","path":"/spec/template/spec/containers/0/args","value":["--namespace=opensandbox","--port=28888","--provider-type=batchsandbox","--mode=header","--log-level=info"]}]`,
-            ],
-            this.logger,
-            30_000,
-          );
-
           // Apply sandbox ingress rules — dynamically generated from DomainService
           emitOutput("post-install", "Applying ingress rules...", "Creating K8s Ingress rules...", 60);
           const domainSvc = new DomainService(this.logger);
-          const domainList = domainSvc.listDomains();
+          const activeDom = domainSvc.getActiveDomain();
+          const domainList = activeDom ? [activeDom] : domainSvc.listDomains();
           if (domainList.length > 0) {
             const ingressResources = generateIngressResources(domainList);
             for (const json of ingressResources) {
@@ -510,7 +526,8 @@ spec:
 
           // Health check against configured domains
           const vDomainSvc = new DomainService(this.logger);
-          const vDomains = vDomainSvc.listDomains();
+          const vActiveDom = vDomainSvc.getActiveDomain();
+          const vDomains = vActiveDom ? [vActiveDom] : vDomainSvc.listDomains();
           const healthUrls = vDomains.length > 0
             ? vDomains.map((d: string) => `http://osb.${d.replace(/^\*\./, "")}/health`)
             : ["http://osb.sandbox.localhost/health"];

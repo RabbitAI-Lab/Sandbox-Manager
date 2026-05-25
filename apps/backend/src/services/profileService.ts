@@ -19,6 +19,7 @@ export interface ServersConfig {
   profiles: ServerProfile[];
   activeProfileId: string | null;
   allowedDomains: string[];
+  activeDomain: string | null;
 }
 
 export interface CreateProfileData {
@@ -49,7 +50,7 @@ function maskProfile(profile: ServerProfile): ServerProfile {
   return { ...profile, apiKey: maskApiKey(profile.apiKey) };
 }
 
-const DEFAULT_CONFIG: ServersConfig = { profiles: [], activeProfileId: null, allowedDomains: [] };
+const DEFAULT_CONFIG: ServersConfig = { profiles: [], activeProfileId: null, allowedDomains: [], activeDomain: null };
 
 export class ProfileService {
   private logger: Logger;
@@ -72,7 +73,7 @@ export class ProfileService {
         this.logger.warn("servers.json has invalid structure, using defaults");
         return { ...DEFAULT_CONFIG };
       }
-      return { ...parsed, allowedDomains: parsed.allowedDomains ?? [] };
+      return { ...parsed, allowedDomains: parsed.allowedDomains ?? [], activeDomain: parsed.activeDomain ?? null };
     } catch (err) {
       this.logger.warn({ err: err instanceof Error ? err.message : String(err) }, "Failed to load servers.json");
       return { ...DEFAULT_CONFIG };

@@ -13,7 +13,8 @@ domainsRouter.get("/", (req, res) => {
   const { logger } = getAppLocals(req);
   const domainService = new DomainService(logger);
   const domains = domainService.listDomains();
-  res.json({ success: true, data: domains });
+  const activeDomain = domainService.getActiveDomain();
+  res.json({ success: true, data: { domains, activeDomain } });
 });
 
 // POST /api/domains
@@ -73,5 +74,25 @@ domainsRouter.put("/", (req, res) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     res.status(400).json({ success: false, error: { code: "INVALID_DOMAIN", message } });
+  }
+});
+
+// PUT /api/domains/activate — set the active domain
+domainsRouter.put("/activate", (req, res) => {
+  const { logger } = getAppLocals(req);
+  const domainService = new DomainService(logger);
+
+  const { domain } = req.body;
+  if (!domain || typeof domain !== "string") {
+    res.status(400).json({ success: false, error: { code: "MISSING_FIELD", message: "domain is required" } });
+    return;
+  }
+
+  try {
+    const result = domainService.activateDomain(domain);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(404).json({ success: false, error: { code: "NOT_FOUND", message } });
   }
 });

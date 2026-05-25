@@ -6,6 +6,9 @@ metadata:
     app: {{ include "sandbox-platform.fullname" . }}-backend
 data:
   OPENSANDBOX_SERVER_URL: {{ .Values.config.opensandboxServerUrl | quote }}
+  OPENSANDBOX_PROTOCOL: {{ .Values.config.opensandboxProtocol | quote }}
+  OPENSANDBOX_USE_SERVER_PROXY: {{ .Values.config.opensandboxUseServerProxy | quote }}
+  OPENSANDBOX_REQUEST_TIMEOUT_SECONDS: {{ .Values.config.opensandboxRequestTimeoutSeconds | quote }}
   PORT: {{ .Values.config.port | quote }}
   CORS_ORIGIN: {{ .Values.config.corsOrigin | quote }}
   LOG_LEVEL: {{ .Values.config.logLevel | quote }}

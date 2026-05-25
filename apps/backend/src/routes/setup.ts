@@ -131,7 +131,9 @@ setupRouter.post("/complete", async (req, res) => {
     // Sync the config into servers.json so it appears in the settings modal
     const domainService = new DomainService(logger);
     const domains = domainService.listDomains();
-    const serverUrl = domains.length > 0 ? `osb.${domains[0].replace(/^\*\./, "")}` : "osb.sandbox.localhost";
+    const activeDomain = domainService.getActiveDomain();
+    const primaryDomain = activeDomain ?? (domains.length > 0 ? domains[0] : null);
+    const serverUrl = primaryDomain ? `osb.${primaryDomain.replace(/^\*\./, "")}` : "osb.sandbox.localhost";
     const profileService = new ProfileService(logger);
     profileService.ensureProfile({
       name: "Local Kubernetes",

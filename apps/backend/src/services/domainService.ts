@@ -46,6 +46,10 @@ export class DomainService {
     }
 
     config.allowedDomains.splice(idx, 1);
+    // If the removed domain was active, clear activeDomain
+    if (config.activeDomain === trimmed) {
+      config.activeDomain = null;
+    }
     this.profileService.saveServersConfig(config);
     this.logger.info({ domain: trimmed }, "Domain removed");
     return config.allowedDomains;
@@ -74,8 +78,31 @@ export class DomainService {
 
     const config = this.profileService.loadServersConfig();
     config.allowedDomains = normalized;
+    // If activeDomain was removed during bulk update, clear it
+    if (config.activeDomain && !normalized.includes(config.activeDomain)) {
+      config.activeDomain = null;
+    }
     this.profileService.saveServersConfig(config);
     this.logger.info({ count: normalized.length }, "Domains updated");
     return config.allowedDomains;
+  }
+
+  getActiveDomain(): string | null {
+    const config = this.profileService.loadServersConfig();
+    return config.activeDomain ?? null;
+  }
+
+  activateDomain(domain: string): { domains: string[]; activeDomain: string } {
+    const trimmed = domain.trim().toLowerCase();
+    const config = this.profileService.loadServersConfig();
+
+    if (!config.allowedDomains.includes(trimmed)) {
+      throw new Error(`Domain not found: ${trimmed}`);
+    }
+
+    config.activeDomain = trimmed;
+    this.profileService.saveServersConfig(config);
+    this.logger.info({ domain: trimmed }, "Domain activated");
+    return { domains: config.allowedDomains, activeDomain: trimmed };
   }
 }

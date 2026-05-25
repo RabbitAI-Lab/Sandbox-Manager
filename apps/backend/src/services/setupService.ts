@@ -131,7 +131,9 @@ export class SetupService {
 
     const domainService = new DomainService(this.logger);
     const domains = domainService.listDomains();
-    const serverUrl = domains.length > 0 ? `osb.${domains[0].replace(/^\*\./, "")}` : "osb.sandbox.localhost";
+    const activeDomain = domainService.getActiveDomain();
+    const primaryDomain = activeDomain ?? (domains.length > 0 ? domains[0] : null);
+    const serverUrl = primaryDomain ? `osb.${primaryDomain.replace(/^\*\./, "")}` : "osb.sandbox.localhost";
 
     writeEnvFile(this.envPath, {
       OPENSANDBOX_SERVER_URL: serverUrl,
