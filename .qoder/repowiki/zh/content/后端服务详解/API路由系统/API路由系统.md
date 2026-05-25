@@ -101,13 +101,13 @@ REnvCheck --> EnvCheckSvc
 - [apps/backend/src/routes/setup.ts:1-151](file://apps/backend/src/routes/setup.ts#L1-L151)
 - [apps/backend/src/routes/health.ts:1-52](file://apps/backend/src/routes/health.ts#L1-L52)
 - [apps/backend/src/routes/profiles.ts:1-162](file://apps/backend/src/routes/profiles.ts#L1-L162)
-- [apps/backend/src/routes/domains.ts:1-78](file://apps/backend/src/routes/domains.ts#L1-L78)
+- [apps/backend/src/routes/domains.ts:1-99](file://apps/backend/src/routes/domains.ts#L1-L99)
 - [apps/backend/src/routes/envCheck.ts:1-50](file://apps/backend/src/routes/envCheck.ts#L1-L50)
 - [apps/backend/src/middleware/error.ts:1-48](file://apps/backend/src/middleware/error.ts#L1-L48)
 - [apps/backend/src/services/sandboxService.ts:1-148](file://apps/backend/src/services/sandboxService.ts#L1-L148)
 - [apps/backend/src/services/imageService.ts:1-200](file://apps/backend/src/services/imageService.ts#L1-L200)
 - [apps/backend/src/services/setupService.ts:1-147](file://apps/backend/src/services/setupService.ts#L1-L147)
-- [apps/backend/src/services/domainService.ts:1-82](file://apps/backend/src/services/domainService.ts#L1-L82)
+- [apps/backend/src/services/domainService.ts:1-109](file://apps/backend/src/services/domainService.ts#L1-L109)
 - [apps/backend/src/services/envCheckService.ts:1-415](file://apps/backend/src/services/envCheckService.ts#L1-L415)
 
 **章节来源**
@@ -382,11 +382,12 @@ Prof-->>Client : "{success : true, data : {configured : true}}"
 
 ### 域名管理路由（/api/domains）
 - 功能概览
-  - 列举域名、添加域名、删除域名、批量更新域名列表
+  - 列举域名、添加域名、删除域名、批量更新域名列表、激活域名
 - 关键实现要点
   - 域名验证：支持通配符前缀，验证域名格式合法性
   - 去重与排序：批量更新时检查重复域名
   - 配置持久化：通过ProfileService管理allowedDomains配置
+  - **新增**：域名激活功能，支持设置当前活跃域名
 - 典型流程（添加域名）
 
 ```mermaid
@@ -404,12 +405,12 @@ Dom-->>Client : "{success : true, data : domains}"
 ```
 
 **图表来源**
-- [apps/backend/src/routes/domains.ts:19-37](file://apps/backend/src/routes/domains.ts#L19-L37)
+- [apps/backend/src/routes/domains.ts:20-38](file://apps/backend/src/routes/domains.ts#L20-L38)
 - [apps/backend/src/services/domainService.ts:19-38](file://apps/backend/src/services/domainService.ts#L19-L38)
 
 **章节来源**
-- [apps/backend/src/routes/domains.ts:1-78](file://apps/backend/src/routes/domains.ts#L1-L78)
-- [apps/backend/src/services/domainService.ts:1-82](file://apps/backend/src/services/domainService.ts#L1-L82)
+- [apps/backend/src/routes/domains.ts:1-99](file://apps/backend/src/routes/domains.ts#L1-L99)
+- [apps/backend/src/services/domainService.ts:1-109](file://apps/backend/src/services/domainService.ts#L1-L109)
 
 ### 环境检查路由（/api/env-check）
 - 功能概览
@@ -478,12 +479,12 @@ S --> ME["middleware/error.ts"]
 - [apps/backend/src/routes/setup.ts:1-151](file://apps/backend/src/routes/setup.ts#L1-L151)
 - [apps/backend/src/routes/health.ts:1-52](file://apps/backend/src/routes/health.ts#L1-L52)
 - [apps/backend/src/routes/profiles.ts:1-162](file://apps/backend/src/routes/profiles.ts#L1-L162)
-- [apps/backend/src/routes/domains.ts:1-78](file://apps/backend/src/routes/domains.ts#L1-L78)
+- [apps/backend/src/routes/domains.ts:1-99](file://apps/backend/src/routes/domains.ts#L1-L99)
 - [apps/backend/src/routes/envCheck.ts:1-50](file://apps/backend/src/routes/envCheck.ts#L1-L50)
 - [apps/backend/src/services/sandboxService.ts:1-148](file://apps/backend/src/services/sandboxService.ts#L1-L148)
 - [apps/backend/src/services/imageService.ts:1-200](file://apps/backend/src/services/imageService.ts#L1-L200)
 - [apps/backend/src/services/setupService.ts:1-147](file://apps/backend/src/services/setupService.ts#L1-L147)
-- [apps/backend/src/services/domainService.ts:1-82](file://apps/backend/src/services/domainService.ts#L1-L82)
+- [apps/backend/src/services/domainService.ts:1-109](file://apps/backend/src/services/domainService.ts#L1-L109)
 - [apps/backend/src/services/envCheckService.ts:1-415](file://apps/backend/src/services/envCheckService.ts#L1-L415)
 
 **章节来源**
@@ -705,7 +706,7 @@ S --> ME["middleware/error.ts"]
 - 域名管理
   - 列举域名
     - 方法与路径：GET /api/domains
-    - 响应：200 + 域名字符串数组
+    - 响应：200 + { domains: string[], activeDomain: string|null }
   - 添加域名
     - 方法与路径：POST /api/domains
     - 请求体字段：domain (必需)
@@ -717,6 +718,10 @@ S --> ME["middleware/error.ts"]
     - 方法与路径：PUT /api/domains
     - 请求体字段：domains[] (必需，必须为数组)
     - 响应：200 + 更新后的域名数组
+  - **新增**：激活域名
+    - 方法与路径：PUT /api/domains/activate
+    - 请求体字段：domain (必需)
+    - 响应：200 + { domains: string[], activeDomain: string }
 
 - 环境检查
   - 运行所有环境检查
@@ -735,6 +740,6 @@ S --> ME["middleware/error.ts"]
 - [apps/backend/src/routes/setup.ts:17-151](file://apps/backend/src/routes/setup.ts#L17-L151)
 - [apps/backend/src/routes/health.ts:6-51](file://apps/backend/src/routes/health.ts#L6-L51)
 - [apps/backend/src/routes/profiles.ts:17-162](file://apps/backend/src/routes/profiles.ts#L17-L162)
-- [apps/backend/src/routes/domains.ts:11-78](file://apps/backend/src/routes/domains.ts#L11-L78)
+- [apps/backend/src/routes/domains.ts:11-99](file://apps/backend/src/routes/domains.ts#L11-L99)
 - [apps/backend/src/routes/envCheck.ts:15-50](file://apps/backend/src/routes/envCheck.ts#L15-L50)
 - [apps/backend/src/types/index.ts:13-89](file://apps/backend/src/types/index.ts#L13-L89)

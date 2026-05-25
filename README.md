@@ -2,6 +2,94 @@
 
 基于 [OpenSandbox](https://github.com/opensandbox/opensandbox) 的 Kubernetes AI 沙箱管理平台。通过 Web UI 创建、管理隔离的沙箱环境，并使用 Web 终端 (xterm.js) 实时交互。
 
+## 系统架构
+
+### 整体架构概览
+
+```mermaid
+flowchart LR
+    subgraph Client["客户端"]
+        Browser["Browser"]
+    end
+
+    subgraph DNS["DNS 层"]
+        Dnsmasq["dnsmasq<br/>127.0.0.1:53"]
+        Resolver["macOS resolver<br/>/etc/resolver/sandbox.localhost"]
+    end
+
+    subgraph Ingress["Ingress 层 (唯一入口)"]
+        NginxController["K8s Nginx<br/>Ingress Controller<br/>宿主机 :80<br/>hostNetwork"]
+    end
+
+    subgraph Services["服务层"]
+        Frontend["Frontend<br/>Nginx :80<br/>React SPA"]
+        Backend["Backend<br/>Express :3000<br/>REST + WebSocket"]
+        OSServer["OpenSandbox Server<br/>:80<br/>沙箱管理 API"]
+        Gateway["OpenSandbox<br/>Ingress Gateway<br/>opensandbox-system<br/>--mode=header"]
+        SandboxPods["Sandbox Pods<br/>execd 容器"]
+    end
+
+    Browser --> Dnsmasq
+    Dnsmasq --> Resolver
+    Resolver --> NginxController
+
+    NginxController -->|"sandbox.localhost"| Frontend
+    NginxController -->|"sandbox.localhost"| Backend
+    NginxController -->|"osb.sandbox.localhost"| OSServer
+    NginxController -->|"*.sandbox.localhost"| Gateway
+    Gateway --> SandboxPods
+
+    Backend -.->|"SDK调用"| OSServer
+    Backend -.->|"PTY WebSocket"| SandboxPods
+```
+
+### 三条 Ingress 路由
+
+所有流量统一经过 **K8s Nginx Ingress Controller**，通过 HTTP Host 头匹配分发：
+
+```mermaid
+flowchart TB
+    subgraph IngressController["K8s Nginx Ingress Controller (唯一入口)"]
+        IngressNginx["监听宿主机 :80<br/>hostNetwork: true"]
+    end
+
+    subgraph RouteA["路由 A: Platform"]
+        PlatformIngress["K8s Ingress: sandbox-platform<br/>namespace: default<br/>host: sandbox.localhost"]
+        FrontendSvc["Frontend Service<br/>:80 (Nginx SPA)"]
+        BackendSvc["Backend Service<br/>:3000 (Express API)"]
+    end
+
+    subgraph RouteB["路由 B: OpenSandbox Server"]
+        ServerIngress["K8s Ingress: sandbox-server-ingress<br/>namespace: opensandbox-system<br/>host: osb.sandbox.localhost"]
+        OSServerSvc["OpenSandbox Server<br/>:80 (沙箱管理 API)"]
+    end
+
+    subgraph RouteC["路由 C: Sandbox Traffic"]
+        WildcardIngress["K8s Ingress: sandbox-wildcard-ingress<br/>namespace: opensandbox-system<br/>host: *.sandbox.localhost"]
+        GatewaySvc["OpenSandbox Ingress Gateway<br/>Service: opensandbox-ingress-gateway:80<br/>Pod: :28888 --mode=header"]
+        SandboxPod["Sandbox Pod<br/>execd 容器"]
+    end
+
+    IngressNginx --> PlatformIngress
+    PlatformIngress --> FrontendSvc
+    PlatformIngress --> BackendSvc
+
+    IngressNginx --> ServerIngress
+    ServerIngress --> OSServerSvc
+
+    IngressNginx --> WildcardIngress
+    WildcardIngress --> GatewaySvc
+    GatewaySvc -->|"Host header 路由"| SandboxPod
+```
+
+| Host 匹配 | K8s Ingress 资源 | Namespace | 后端 Service | 用途 |
+|-----------|------------------|-----------|--------------|------|
+| `sandbox.localhost` | `sandbox-platform` | default | Frontend(:80) + Backend(:3000) | Web UI + REST API + WebSocket |
+| `osb.sandbox.localhost` | `sandbox-server-ingress` | opensandbox-system | opensandbox-server(:80) | 沙箱管理 API |
+| `*.sandbox.localhost` | `sandbox-wildcard-ingress` | opensandbox-system | opensandbox-ingress-gateway(:80) | 沙箱流量访问 |
+
+> 详细架构文档见 [docs/system-architecture.md](docs/system-architecture.md)
+
 ## 技术栈
 
 | 层级 | 技术 |
