@@ -1,0 +1,14 @@
+node_modules
+dist
+.git
+.env
+*.local
+*.log
+logs
+coverage
+.vite
+*.tsbuildinfo
+infra
+docs
+scripts
+.qoder

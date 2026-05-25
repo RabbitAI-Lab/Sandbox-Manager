@@ -1,0 +1,11 @@
+backend:
+  image:
+    repository: ghcr.io/rabbitai-lab/sandbox-manager/backend
+    tag: latest
+    pullPolicy: Always
+
+frontend:
+  image:
+    repository: ghcr.io/rabbitai-lab/sandbox-manager/frontend
+    tag: latest
+    pullPolicy: Always
