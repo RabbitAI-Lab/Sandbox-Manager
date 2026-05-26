@@ -2,6 +2,44 @@
 
 基于 [OpenSandbox](https://github.com/opensandbox/opensandbox) 的 Kubernetes AI 沙箱管理平台。通过 Web UI 创建、管理隔离的沙箱环境，并使用 Web 终端 (xterm.js) 实时交互。
 
+## 功能展示
+
+### 安装 OpenSandbox
+
+通过 Setup Wizard 一键安装 OpenSandbox 基础设施到 Kubernetes 集群。
+
+![Install OpenSandbox](docs/images/install-opensandbox.png)
+
+### 配置 Server
+
+在平台中配置 OpenSandbox Server 连接地址和 API Key。
+
+![Config Server](docs/images/config-server.png)
+
+### 镜像管理
+
+浏览可用的沙箱镜像列表，支持预设镜像和自定义镜像。
+
+![Image List](docs/images/image-list.png)
+
+### 沙箱列表
+
+Dashboard 展示所有沙箱实例及其运行状态，支持批量管理。
+
+![Sandbox List](docs/images/sandbox-list.png)
+
+### 创建沙箱
+
+选择镜像和配置参数，一键创建隔离的沙箱环境。
+
+![Create Sandbox](docs/images/create-sandbox.png)
+
+### 连接沙箱
+
+通过 Web 终端 (xterm.js) 实时连接沙箱，支持完整交互式操作。
+
+![Connect Sandbox](docs/images/connect-sandbox.png)
+
 ## 系统架构
 
 ### 整体架构概览
