@@ -7,6 +7,7 @@ import type { Config } from "./config.js";
 import type { Logger } from "./logger.js";
 import { SandboxService } from "./services/sandboxService.js";
 import { ImageService } from "./services/imageService.js";
+import { ResourceService } from "./services/resourceService.js";
 import { ConnectionManager } from "./websocket/connectionManager.js";
 import { PtyRelay } from "./websocket/ptyRelay.js";
 import { registerRoutes } from "./routes/index.js";
@@ -15,6 +16,7 @@ import { errorHandler } from "./middleware/error.js";
 export interface AppServices {
   sandboxService: SandboxService | null;
   imageService: ImageService;
+  resourceService?: ResourceService;
   connectionManager: ConnectionManager;
   ptyRelay: PtyRelay;
 }
@@ -48,12 +50,13 @@ export function createServer(config: Config, logger: Logger) {
   });
 
   // Initialize services — sandboxService is null when not yet configured
-  const sandboxService = config.configured ? new SandboxService(config, logger) : null;
+  const resourceService = new ResourceService(logger, config.sandboxNamespace, config.resourceCheckEnabled);
+  const sandboxService = config.configured ? new SandboxService(config, logger, resourceService) : null;
   const imageService = new ImageService(logger);
   const connectionManager = new ConnectionManager(config, logger);
   const ptyRely = new PtyRelay(sandboxService, connectionManager, config, logger);
 
-  const services: AppServices = { sandboxService, imageService, connectionManager, ptyRelay: ptyRely };
+  const services: AppServices = { sandboxService, imageService, resourceService, connectionManager, ptyRelay: ptyRely };
 
   // Store services on app for route access
   app.locals.services = services;
@@ -106,12 +109,13 @@ export async function reinitializeServices(
   }
 
   // Create new services
-  const sandboxService = newConfig.configured ? new SandboxService(newConfig, logger) : null;
+  const resourceService = new ResourceService(logger, newConfig.sandboxNamespace, newConfig.resourceCheckEnabled);
+  const sandboxService = newConfig.configured ? new SandboxService(newConfig, logger, resourceService) : null;
   const imageService = new ImageService(logger);
   const connectionManager = new ConnectionManager(newConfig, logger);
   const ptyRelay = new PtyRelay(sandboxService, connectionManager, newConfig, logger);
 
-  app.locals.services = { sandboxService, imageService, connectionManager, ptyRelay };
+  app.locals.services = { sandboxService, imageService, resourceService, connectionManager, ptyRelay };
   app.locals.config = newConfig;
 
   logger.info({ configured: newConfig.configured }, "Services reinitialized");

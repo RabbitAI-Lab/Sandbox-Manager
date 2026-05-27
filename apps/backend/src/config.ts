@@ -20,6 +20,10 @@ export interface Config {
 
   // PTY relay
   ptyIdleTimeoutMs: number;
+
+  // Resource monitoring
+  sandboxNamespace: string;
+  resourceCheckEnabled: boolean;
 }
 
 export interface SetupConfig {
@@ -66,5 +70,8 @@ export function loadConfig(): Config {
     logLevel: getEnv("LOG_LEVEL", "info"),
 
     ptyIdleTimeoutMs: getEnvInt("PTY_IDLE_TIMEOUT_MS", 300000),
+
+    sandboxNamespace: getEnv("SANDBOX_NAMESPACE", "opensandbox"),
+    resourceCheckEnabled: getEnv("CLUSTER_RESOURCE_CHECK_ENABLED", "true") === "true",
   });
 }

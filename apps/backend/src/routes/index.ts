@@ -7,6 +7,7 @@ import { imagesRouter } from "./images.js";
 import { profilesRouter } from "./profiles.js";
 import { domainsRouter } from "./domains.js";
 import { envCheckRouter } from "./envCheck.js";
+import { resourcesRouter } from "./resources.js";
 
 export function registerRoutes(app: Application) {
   app.use("/api/health", healthRouter);
@@ -16,6 +17,7 @@ export function registerRoutes(app: Application) {
   app.use("/api/profiles", profilesRouter);
   app.use("/api/domains", domainsRouter);
   app.use("/api/env-check", envCheckRouter);
+  app.use("/api/resources", resourcesRouter);
 }
 
 export { healthRouter, sandboxesRouter, imagesRouter };

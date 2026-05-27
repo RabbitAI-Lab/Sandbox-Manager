@@ -7,19 +7,22 @@ import {
 } from "@alibaba-group/opensandbox";
 import type { Config } from "../config.js";
 import type { Logger } from "../logger.js";
+import type { ResourceService } from "./resourceService.js";
 
 export class SandboxService {
   private manager: SandboxManager;
   private config: Config;
   private logger: Logger;
   private connectionConfig: ConnectionConfig;
+  private resourceService?: ResourceService;
 
   // LRU cache for connected Sandbox instances
   private cache: LRUCache<string, Sandbox>;
 
-  constructor(config: Config, logger: Logger) {
+  constructor(config: Config, logger: Logger, resourceService?: ResourceService) {
     this.config = config;
     this.logger = logger;
+    this.resourceService = resourceService;
     this.connectionConfig = new ConnectionConfig({
       domain: config.osbServerUrl,
       apiKey: config.osbApiKey || undefined,
@@ -72,6 +75,17 @@ export class SandboxService {
     };
   }) {
     this.logger.info({ image: opts.image, name: opts.name }, "Creating sandbox");
+
+    // Pre-creation resource check
+    if (this.resourceService) {
+      const cpu = opts.resource?.cpu ?? "1";
+      const memory = opts.resource?.memory ?? "2Gi";
+      const check = await this.resourceService.checkSandboxFit({ cpu, memory });
+      if (!check.canFit) {
+        throw new Error(`Cluster resources exhausted: ${check.reason}`);
+      }
+    }
+
     const sandbox = await Sandbox.create({
       connectionConfig: this.connectionConfig,
       image: opts.image,

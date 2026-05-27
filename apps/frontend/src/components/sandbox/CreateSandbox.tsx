@@ -12,6 +12,7 @@ interface CreateSandboxProps {
     name: string;
     timeoutSeconds: number;
     env?: Record<string, string>;
+    resource?: { cpu?: string; memory?: string };
   }) => Promise<void>;
 }
 
@@ -23,6 +24,12 @@ export function CreateSandbox({ open, onClose, onSubmit }: CreateSandboxProps) {
   const [envText, setEnvText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Advanced options
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [cpu, setCpu] = useState("1");
+  const [memory, setMemory] = useState("2");
+  const [memoryUnit, setMemoryUnit] = useState<"Mi" | "Gi">("Gi");
 
   useEffect(() => {
     if (!open) return;
@@ -53,6 +60,14 @@ export function CreateSandbox({ open, onClose, onSubmit }: CreateSandboxProps) {
       }
     }
 
+    const resource: { cpu?: string; memory?: string } | undefined =
+      showAdvanced
+        ? {
+            cpu: cpu.trim() || undefined,
+            memory: memory.trim() ? `${memory.trim()}${memoryUnit}` : undefined,
+          }
+        : undefined;
+
     setSubmitting(true);
     setError(null);
     try {
@@ -61,6 +76,7 @@ export function CreateSandbox({ open, onClose, onSubmit }: CreateSandboxProps) {
         name: name.trim(),
         timeoutSeconds: timeout * 60,
         env: Object.keys(env).length > 0 ? env : undefined,
+        resource,
       });
       onClose();
     } catch (err) {
@@ -172,6 +188,71 @@ export function CreateSandbox({ open, onClose, onSubmit }: CreateSandboxProps) {
             placeholder="KEY=value&#10;ANOTHER=value"
           />
           <p className="text-xs text-gray-400 mt-1">One per line, KEY=value format</p>
+        </div>
+
+        {/* Advanced Options (collapsible) */}
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+          >
+            <svg
+              className={`w-4 h-4 transition-transform ${showAdvanced ? "rotate-90" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            Advanced Options
+          </button>
+          {showAdvanced && (
+            <div className="mt-3 space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  CPU (cores)
+                </label>
+                <input
+                  type="text"
+                  value={cpu}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === "" || /^\d*\.?\d*$/.test(v)) setCpu(v);
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                  placeholder="1"
+                />
+                <p className="text-xs text-gray-400 mt-0.5">CPU cores requested for the sandbox</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Memory
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={memory}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "" || /^\d*\.?\d*$/.test(v)) setMemory(v);
+                    }}
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                    placeholder="2"
+                  />
+                  <select
+                    value={memoryUnit}
+                    onChange={(e) => setMemoryUnit(e.target.value as "Mi" | "Gi")}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none bg-white"
+                  >
+                    <option value="Mi">Mi</option>
+                    <option value="Gi">Gi</option>
+                  </select>
+                </div>
+                <p className="text-xs text-gray-400 mt-0.5">Memory requested for the sandbox</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </Modal>

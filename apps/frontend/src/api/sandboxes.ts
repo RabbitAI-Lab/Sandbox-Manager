@@ -1,5 +1,5 @@
 import { request } from "./client";
-import type { Sandbox, CreateSandboxRequest, Endpoint } from "./types";
+import type { Sandbox, CreateSandboxRequest, Endpoint, ClusterResources } from "./types";
 
 export function listSandboxes(params?: {
   state?: string[];
@@ -36,4 +36,8 @@ export function resumeSandbox(id: string): Promise<void> {
 
 export function getEndpoint(sandboxId: string, port: number): Promise<Endpoint> {
   return request("GET", `/sandboxes/${sandboxId}/endpoints/${port}`);
+}
+
+export function getClusterResources(): Promise<ClusterResources | null> {
+  return request("GET", "/resources");
 }

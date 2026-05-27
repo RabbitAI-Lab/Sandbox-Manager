@@ -86,3 +86,31 @@ export interface CachedImage {
   node: string;
   sizeBytes?: number;
 }
+
+// Cluster resource monitoring
+
+export interface NodeResource {
+  name: string;
+  cpuAllocatable: string;
+  memoryAllocatable: string;
+  /** Sandbox pod requests on this node (opensandbox namespace only) */
+  sandboxCpuRequested?: string;
+  sandboxMemoryRequested?: string;
+}
+
+export interface ClusterResources {
+  nodes: NodeResource[];
+  sandboxPodCount: number;
+  sandboxCpuRequested: string;
+  sandboxMemoryRequested: string;
+  /** Physical CPU cores (derived from node allocatable — single node in shared-VM, sum in real K8s) */
+  physicalCpu: number;
+  /** Physical memory bytes (derived from node allocatable) */
+  physicalMemoryBytes: number;
+}
+
+export interface CheckResourceResult {
+  canFit: boolean;
+  reason?: string;
+  availablePerNode?: Array<{ node: string; freeMemory: string; freeCpu: string }>;
+}

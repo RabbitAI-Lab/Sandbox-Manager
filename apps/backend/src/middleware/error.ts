@@ -40,6 +40,9 @@ function getStatusCode(err: Error): number {
   if (name === "InvalidArgumentException") return 400;
   if (name === "SandboxException" || name === "SandboxInternalException") return 502;
 
+  // Resource exhaustion (pre-creation check)
+  if (err.message.startsWith("Cluster resources exhausted")) return 507;
+
   // Express/json body parser errors
   if ("type" in err && (err as { type: string }).type === "entity.parse.failed") return 400;
 

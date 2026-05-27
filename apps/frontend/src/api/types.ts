@@ -22,6 +22,7 @@ export interface CreateSandboxRequest {
   timeoutSeconds?: number;
   env?: Record<string, string>;
   metadata?: Record<string, string>;
+  resource?: { cpu?: string; memory?: string };
 }
 
 export interface FileEntry {
@@ -153,4 +154,23 @@ export interface CheckItem {
 export interface ProfilesListResponse {
   profiles: ServerProfile[];
   activeProfileId: string | null;
+}
+
+// Cluster resource monitoring
+
+export interface NodeResource {
+  name: string;
+  cpuAllocatable: string;
+  memoryAllocatable: string;
+  sandboxCpuRequested?: string;
+  sandboxMemoryRequested?: string;
+}
+
+export interface ClusterResources {
+  nodes: NodeResource[];
+  sandboxPodCount: number;
+  sandboxCpuRequested: string;
+  sandboxMemoryRequested: string;
+  physicalCpu: number;
+  physicalMemoryBytes: number;
 }

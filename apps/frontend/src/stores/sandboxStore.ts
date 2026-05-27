@@ -1,22 +1,37 @@
 import { create } from "zustand";
 import * as sandboxApi from "@/api/sandboxes";
-import type { Sandbox, CreateSandboxRequest } from "@/api/types";
+import type { Sandbox, CreateSandboxRequest, ClusterResources } from "@/api/types";
 
 interface SandboxState {
   sandboxes: Sandbox[];
   loading: boolean;
   error: string | null;
+  clusterResources: ClusterResources | null;
+  resourcesLoading: boolean;
   fetchSandboxes: () => Promise<void>;
   createSandbox: (req: CreateSandboxRequest) => Promise<Sandbox>;
   deleteSandbox: (id: string) => Promise<void>;
   pauseSandbox: (id: string) => Promise<void>;
   resumeSandbox: (id: string) => Promise<void>;
+  fetchClusterResources: () => Promise<void>;
 }
 
 export const useSandboxStore = create<SandboxState>((set, get) => ({
   sandboxes: [],
   loading: false,
   error: null,
+  clusterResources: null,
+  resourcesLoading: false,
+
+  fetchClusterResources: async () => {
+    set({ resourcesLoading: true });
+    try {
+      const data = await sandboxApi.getClusterResources();
+      set({ clusterResources: data, resourcesLoading: false });
+    } catch {
+      set({ resourcesLoading: false });
+    }
+  },
 
   fetchSandboxes: async () => {
     set({ loading: true, error: null });
